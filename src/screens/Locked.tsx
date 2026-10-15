@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { WrongSecretError } from '../crypto/vault'
 import { useStore } from '../state/store'
-import { fetchRemote, saveSyncConfig, signIn } from '../sync/remote'
+import { DEFAULT_SYNC, fetchRemote, saveSyncConfig, signIn } from '../sync/remote'
 
 const MIN_LENGTH = 12
 
@@ -180,8 +180,8 @@ export function Unlock() {
 /** Nouvel appareil : récupère le coffre chiffré depuis la synchro, puis on le déverrouille avec la phrase secrète. */
 function RestoreFromSync({ onBack }: { onBack: () => void }) {
   const { adoptVault } = useStore()
-  const [url, setUrl] = useState('')
-  const [anonKey, setAnonKey] = useState('')
+  const [url, setUrl] = useState(DEFAULT_SYNC?.url ?? '')
+  const [anonKey, setAnonKey] = useState(DEFAULT_SYNC?.anonKey ?? '')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -208,15 +208,19 @@ function RestoreFromSync({ onBack }: { onBack: () => void }) {
     <div className="center-screen">
       <form className="card stack" onSubmit={submit}>
         <h1>Récupérer mes données</h1>
-        <p className="small muted">Les informations de synchro se trouvent dans Réglages › Sécurité sur ton autre appareil.</p>
-        <label>
-          Adresse du projet
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" />
-        </label>
-        <label>
-          Clé publique (anon)
-          <input value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
-        </label>
+        {!DEFAULT_SYNC && (
+          <>
+            <p className="small muted">Les informations de synchro se trouvent dans Réglages › Sécurité sur ton autre appareil.</p>
+            <label>
+              Adresse du projet
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" />
+            </label>
+            <label>
+              Clé publique (anon)
+              <input value={anonKey} onChange={(e) => setAnonKey(e.target.value)} />
+            </label>
+          </>
+        )}
         <label>
           E-mail de synchro
           <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />

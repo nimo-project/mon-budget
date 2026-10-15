@@ -8,6 +8,12 @@ export interface SyncConfig {
   anonKey: string
 }
 
+/** Projet de synchro intégré à l'app (variables VITE_SUPABASE_*), pour ne rien avoir à saisir. */
+export const DEFAULT_SYNC: SyncConfig | null =
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_KEY
+    ? { url: import.meta.env.VITE_SUPABASE_URL, anonKey: import.meta.env.VITE_SUPABASE_KEY }
+    : null
+
 const CONFIG_KEY = 'budget-sync-config'
 const BASE_KEY = 'budget-sync-base-revision'
 
