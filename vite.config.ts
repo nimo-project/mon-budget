@@ -5,7 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // `vite build --mode artifact` : version d'essai publiée comme page claude.ai (chemins relatifs, sans service worker).
 export default defineConfig(({ mode }) => ({
-  base: mode === 'artifact' ? './' : '/',
+  // BASE_PATH : sous-dossier d'hébergement (GitHub Pages sert l'app sous /mon-budget/).
+  base: mode === 'artifact' ? './' : (process.env.BASE_PATH ?? '/'),
   plugins: [
     react(),
     mode !== 'artifact' && VitePWA({
@@ -16,7 +17,7 @@ export default defineConfig(({ mode }) => ({
         short_name: 'Budget',
         description: 'Suivi de budget personnel, chiffré de bout en bout',
         lang: 'fr',
-        start_url: '/',
+        start_url: './',
         display: 'standalone',
         background_color: '#f6f5f2',
         theme_color: '#2f6b4f',
@@ -25,7 +26,7 @@ export default defineConfig(({ mode }) => ({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        shortcuts: [{ name: 'Ajouter une dépense', short_name: 'Ajouter', url: '/?ajout=1' }],
+        shortcuts: [{ name: 'Ajouter une dépense', short_name: 'Ajouter', url: './?ajout=1' }],
       },
     }),
   ],
