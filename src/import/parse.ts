@@ -36,7 +36,7 @@ export interface ParseResult {
 
 export function decode(bytes: ArrayBuffer): string {
   const utf8 = new TextDecoder('utf-8').decode(bytes)
-  if (!utf8.includes('�')) return utf8.replace(/^﻿/, '')
+  if (!/\uFFFD/.test(utf8)) return utf8.replace(/^\uFEFF/, '')
   // Exports en Windows-1252 (fréquent pour les CSV des banques françaises)
   return new TextDecoder('windows-1252').decode(bytes)
 }

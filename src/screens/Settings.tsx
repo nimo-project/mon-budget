@@ -263,6 +263,7 @@ function CategoryForm({
   const { data } = useStore()
   const [c, setC] = useState(category)
   const [mergeInto, setMergeInto] = useState<string | undefined>()
+  const [mergeConfirmed, setMergeConfirmed] = useState(false)
   const parents = data.categories.filter((x) => !x.parentId && x.id !== c.id && !x.archived)
   const hasChildren = data.categories.some((x) => x.parentId === c.id)
 
@@ -272,8 +273,7 @@ function CategoryForm({
         onSubmit={(e) => {
           e.preventDefault()
           if (mergeInto) {
-            if (confirm('Toutes les opérations, règles et budgets de cette catégorie passeront dans la catégorie choisie. Continuer ?'))
-              onSave(c, mergeInto)
+            if (mergeConfirmed) onSave(c, mergeInto)
           } else if (c.name.trim()) onSave({ ...c, name: c.name.trim() })
         }}
       >
@@ -333,13 +333,21 @@ function CategoryForm({
                 allowEmpty="Ne pas fusionner"
               />
             </label>
+            {mergeInto && (
+              <label className="inline">
+                <input type="checkbox" checked={mergeConfirmed} onChange={(e) => setMergeConfirmed(e.target.checked)} />
+                Je confirme : opérations, règles et budgets passent dans la catégorie choisie
+              </label>
+            )}
           </>
         )}
         <div className="row end" style={{ marginTop: '1rem' }}>
           <button type="button" className="btn" onClick={onClose}>
             Annuler
           </button>
-          <button className="btn primary">{mergeInto ? 'Fusionner' : 'Enregistrer'}</button>
+          <button className="btn primary" disabled={!!mergeInto && !mergeConfirmed}>
+            {mergeInto ? 'Fusionner' : 'Enregistrer'}
+          </button>
         </div>
       </form>
     </Sheet>
@@ -430,19 +438,19 @@ function Security() {
     setMessage('Phrase secrète changée. Ta clé de secours reste valable.')
   }
 
-  const restore = async (file: File) => {
+  const [backupFile, setBackupFile] = useState<File | null>(null)
+  const [backupSecret, setBackupSecret] = useState('')
+  const [restored, setRestored] = useState<AppData | null>(null)
+
+  const readBackup = async () => {
+    if (!backupFile) return
     try {
-      const backup = JSON.parse(await file.text()) as Vault
-      const secret = prompt('Phrase secrète de cette sauvegarde')
-      if (!secret) return
-      const key = await unlockWithPassphrase(backup, secret)
-      const restored = await decryptJson<AppData>(key, backup.payload)
-      if (confirm(`Remplacer toutes tes données actuelles par cette sauvegarde (${restored.transactions.length} opérations) ?`)) {
-        replaceAll(restored)
-        setMessage('Sauvegarde restaurée.')
-      }
+      const backup = JSON.parse(await backupFile.text()) as Vault
+      const key = await unlockWithPassphrase(backup, backupSecret)
+      setRestored(await decryptJson<AppData>(key, backup.payload))
+      setMessage(null)
     } catch {
-      setMessage('Impossible de lire cette sauvegarde (fichier ou phrase secrète incorrects).')
+      setMessage('Impossible de lire cette sauvegarde : fichier ou phrase secrète incorrects.')
     }
   }
 
@@ -486,11 +494,40 @@ function Security() {
           >
             Télécharger une sauvegarde chiffrée
           </button>
-          <label className="btn" style={{ margin: 0, color: 'var(--text)' }}>
-            Restaurer une sauvegarde
-            <input type="file" accept=".json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0])} />
-          </label>
         </div>
+        <h3>Restaurer une sauvegarde</h3>
+        <label>
+          Fichier de sauvegarde
+          <input type="file" accept=".json" onChange={(e) => setBackupFile(e.target.files?.[0] ?? null)} />
+        </label>
+        <label>
+          Phrase secrète de cette sauvegarde
+          <input type="password" value={backupSecret} onChange={(e) => setBackupSecret(e.target.value)} />
+        </label>
+        {!restored ? (
+          <button className="btn" disabled={!backupFile || !backupSecret} onClick={readBackup}>
+            Lire la sauvegarde
+          </button>
+        ) : (
+          <div className="card warn stack">
+            <p>Remplacer toutes tes données actuelles par cette sauvegarde ({restored.transactions.length} opérations) ?</p>
+            <div className="row">
+              <button
+                className="btn primary small"
+                onClick={() => {
+                  replaceAll(restored)
+                  setRestored(null)
+                  setMessage('Sauvegarde restaurée.')
+                }}
+              >
+                Remplacer mes données
+              </button>
+              <button className="btn small" onClick={() => setRestored(null)}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

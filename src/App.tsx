@@ -70,6 +70,12 @@ function Shell() {
         </div>
       </nav>
       <main className="content">
+        {import.meta.env.MODE === 'artifact' && (
+          <div className="card warn small" style={{ marginBottom: '1rem' }}>
+            Version d'essai : tes données restent chiffrées dans ce navigateur. La synchro entre appareils et les téléchargements
+            (export CSV, sauvegarde) arriveront avec la version installée.
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/operations" element={<Transactions />} />
@@ -104,6 +110,15 @@ function Shell() {
 export default function App() {
   const { status } = useStore()
   if (status === 'loading') return null
+  if (status === 'unavailable')
+    return (
+      <div className="center-screen">
+        <div className="card">
+          <h1>Stockage indisponible</h1>
+          <p>Ce navigateur bloque le stockage local (navigation privée ou données de site bloquées). Ouvre l'app dans une fenêtre normale.</p>
+        </div>
+      </div>
+    )
   if (status === 'new') return <Setup />
   if (status === 'locked') return <Unlock />
   return (

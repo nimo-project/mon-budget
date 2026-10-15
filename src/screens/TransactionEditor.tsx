@@ -36,6 +36,7 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
   const [reimburses, setReimburses] = useState(tx.reimbursesId)
   const [transferWith, setTransferWith] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const allTags = useMemo(() => [...new Set(data.transactions.flatMap((t) => t.tags))], [data.transactions])
 
   const splitTotal = sum(splits, (s) => s.amount)
@@ -257,13 +258,13 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
             <button
               className="btn danger small"
               onClick={() => {
-                if (confirm('Supprimer cette saisie ?')) {
-                  update((d) => deleteTransaction(d, tx.id))
-                  onClose()
-                }
+                // Deux temps : le premier appui demande confirmation, le second supprime.
+                if (!confirmDelete) return setConfirmDelete(true)
+                update((d) => deleteTransaction(d, tx.id))
+                onClose()
               }}
             >
-              Supprimer
+              {confirmDelete ? 'Confirmer la suppression' : 'Supprimer'}
             </button>
           ) : (
             <span />

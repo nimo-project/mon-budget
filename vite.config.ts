@@ -3,10 +3,12 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+// `vite build --mode artifact` : version d'essai publiée comme page claude.ai (chemins relatifs, sans service worker).
+export default defineConfig(({ mode }) => ({
+  base: mode === 'artifact' ? './' : '/',
   plugins: [
     react(),
-    VitePWA({
+    mode !== 'artifact' && VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
@@ -30,4 +32,4 @@ export default defineConfig({
   test: {
     environment: 'node',
   },
-})
+}))

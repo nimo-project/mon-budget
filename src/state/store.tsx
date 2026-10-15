@@ -13,7 +13,7 @@ import type { AppData } from '../domain/types'
 import { loadVault, saveVault } from '../storage/local'
 import { acceptRemote, loadSyncConfig, push, sync } from '../sync/remote'
 
-type Status = 'loading' | 'new' | 'locked' | 'unlocked'
+type Status = 'loading' | 'unavailable' | 'new' | 'locked' | 'unlocked'
 
 export type SyncState =
   | { kind: 'off' }
@@ -61,11 +61,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const dataRef = useRef(data)
 
   useEffect(() => {
-    loadVault().then((v) => {
-      vaultRef.current = v ?? null
-      setVaultState(v ?? null)
-      setStatus(v ? 'locked' : 'new')
-    })
+    loadVault()
+      .then((v) => {
+        vaultRef.current = v ?? null
+        setVaultState(v ?? null)
+        setStatus(v ? 'locked' : 'new')
+      })
+      .catch(() => setStatus('unavailable'))
   }, [])
 
   const storeVault = async (vault: Vault) => {
