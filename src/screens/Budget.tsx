@@ -96,6 +96,8 @@ function BaseBudget() {
     update((d) => ({
       ...d,
       budget: [...d.budget.filter((b) => b.categoryId !== categoryId), { id: uid(), categoryId, kind, amount: Math.abs(amount) }],
+      // Les restes à décider commencent avec la première période où un budget existe.
+      settings: { ...d.settings, budgetSince: d.settings.budgetSince ?? currentPeriod(d).start },
     }))
     setCategoryId(undefined)
     setAmount(null)

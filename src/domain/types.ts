@@ -145,6 +145,8 @@ export interface Settings {
   ruleTolerance: number
   /** Seuil d'alerte des enveloppes, en pourcentage. */
   alertThreshold: number
+  /** Début de la première période budgétée : pas de reste à décider avant. */
+  budgetSince?: string
 }
 
 export interface AppData {

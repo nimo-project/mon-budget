@@ -55,7 +55,7 @@ export function recurringDebits(data: AppData, asOf = today()): Recurring[] {
 export function subscriptions(data: AppData): Recurring[] {
   const subs = subtree('cat-abonnements', data.categories)
   return recurringDebits(data)
-    .filter((r) => (r.categoryId && subs.has(r.categoryId)) || r.key.startsWith('r:'))
+    .filter((r) => r.categoryId && subs.has(r.categoryId))
     .sort((a, b) => b.yearlyCost - a.yearlyCost)
 }
 
@@ -186,7 +186,12 @@ export function periodReview(data: AppData, period: Period): PeriodReview {
     return out
   }
   const now = byRoot(period)
-  const previous = lastPeriods(data, 4, period).slice(0, 3).map(byRoot)
+  // Moyenne sur les périodes précédentes qui ont des opérations (pas avant le premier relevé importé).
+  const firstDate = activeTransactions(data).reduce((m, t) => (t.date < m ? t.date : m), period.start)
+  const previous = lastPeriods(data, 4, period)
+    .slice(0, 3)
+    .filter((p) => p.start >= firstDate)
+    .map(byRoot)
   const name = (id: string) => categoryLabel(id, map)
   return {
     summary,
@@ -247,7 +252,7 @@ export function analyze(data: AppData): Insight[] {
   // 2. Hausse par rapport à l'historique (catégories de dépense de premier niveau).
   const review = periodReview(data, current)
   for (const c of review.vsAverage) {
-    if (c.average >= 3000 && c.amount > c.average * 1.3) {
+    if (c.name !== 'À classer' && c.average >= 3000 && c.amount > c.average * 1.3) {
       const pct = Math.round((c.amount / c.average - 1) * 100)
       out.push({
         level: 'attention',

@@ -126,6 +126,7 @@ export interface PendingRollover {
 export function pendingRollovers(data: AppData, current: Period): PendingRollover[] {
   const prev = previousPeriod(current, data)
   if (prev.start === current.start) return []
+  if (!data.settings.budgetSince || prev.start < data.settings.budgetSince) return []
   const summary = summarize(data, prev)
   return summary.envelopes
     .filter((e) => e.line.kind === 'variable' && e.remaining > 0)

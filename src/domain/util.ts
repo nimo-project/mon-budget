@@ -5,7 +5,8 @@ export function uid(): string {
 const euro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 export function formatMoney(cents: number): string {
-  return euro.format(cents / 100)
+  // `|| 0` évite l'affichage « -0,00 € »
+  return euro.format(cents / 100 || 0)
 }
 
 /** "12,50", "-1 234.5", "1.234,56 €" → centimes. Retourne null si illisible. */
