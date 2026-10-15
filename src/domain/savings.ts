@@ -80,15 +80,23 @@ function order(p: Pot): number {
 export function suggestAllocation(amount: number, data: AppData): Map<string, number> {
   const out = new Map<string, number>()
   let left = amount
+  // Restes de budget que Nina a choisi d'épargner récemment : leur cagnotte passe en premier.
+  const recent = data.rollovers.filter((r) => r.action === 'epargne' && r.potId && r.periodStart >= addMonths(today(), -2))
+  for (const r of recent) {
+    const give = Math.min(left, r.amount)
+    if (give <= 0) break
+    out.set(r.potId!, (out.get(r.potId!) ?? 0) + give)
+    left -= give
+  }
   const statuses = potStatuses(data).filter((s) => s.pot.id !== UNALLOCATED_POT)
   const ranked = [...statuses.filter((s) => s.pot.priority), ...statuses.filter((s) => !s.pot.priority)]
   for (const s of ranked) {
     if (left <= 0) break
     const missing = s.goal ? Math.max(0, s.goal - s.balance) : 0
     const want = Math.min(missing, s.monthlyNeeded ?? missing)
-    const give = Math.min(left, want)
+    const give = Math.min(left, want - (out.get(s.pot.id) ?? 0))
     if (give > 0) {
-      out.set(s.pot.id, give)
+      out.set(s.pot.id, (out.get(s.pot.id) ?? 0) + give)
       left -= give
     }
   }

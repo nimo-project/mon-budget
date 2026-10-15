@@ -11,8 +11,16 @@ import {
 import { emptyData } from '../domain/defaults'
 import type { AppData } from '../domain/types'
 import { loadVault, saveVault } from '../storage/local'
+import { acceptRemote, loadSyncConfig, push, sync } from '../sync/remote'
 
 type Status = 'loading' | 'new' | 'locked' | 'unlocked'
+
+export type SyncState =
+  | { kind: 'off' }
+  | { kind: 'syncing' }
+  | { kind: 'ok'; at: string }
+  | { kind: 'error'; message: string }
+  | { kind: 'conflict'; remote: Vault }
 
 interface Store {
   status: Status
@@ -27,12 +35,18 @@ interface Store {
   lock: () => void
   /** Remplace toutes les données (restauration d'une sauvegarde). */
   replaceAll: (data: AppData) => void
+  /** Installe sur cet appareil un coffre récupéré depuis la synchro (nouvel appareil). */
+  adoptVault: (vault: Vault) => Promise<void>
   vault: Vault | null
+  syncState: SyncState
+  syncNow: () => Promise<void>
+  resolveConflict: (keep: 'local' | 'remote') => Promise<void>
 }
 
 const Ctx = createContext<Store | null>(null)
 
 const AUTO_LOCK_MS = 15 * 60 * 1000
+const SYNC_DELAY_MS = 2000
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
@@ -41,6 +55,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const keyRef = useRef<CryptoKey | null>(null)
   const saving = useRef<Promise<void>>(Promise.resolve())
   const [vaultState, setVaultState] = useState<Vault | null>(null)
+  const [syncState, setSyncState] = useState<SyncState>({ kind: loadSyncConfig() ? 'ok' : 'off', at: '' } as SyncState)
+  const syncTimer = useRef<number | undefined>(undefined)
+  // Référence à jour des données, pour enchaîner plusieurs modifications dans un même geste.
+  const dataRef = useRef(data)
 
   useEffect(() => {
     loadVault().then((v) => {
@@ -50,24 +68,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const persist = useCallback((next: AppData) => {
-    // Les sauvegardes sont mises en file pour garder l'ordre des révisions.
-    saving.current = saving.current.then(async () => {
-      if (!vaultRef.current || !keyRef.current) return
-      const sealed = await sealPayload(vaultRef.current, keyRef.current, next)
-      vaultRef.current = sealed
-      setVaultState(sealed)
-      await saveVault(sealed)
-    })
+  const storeVault = async (vault: Vault) => {
+    vaultRef.current = vault
+    setVaultState(vault)
+    await saveVault(vault)
+  }
+
+  const showData = (next: AppData) => {
+    dataRef.current = next
+    setData(next)
+  }
+
+  const runSync = useCallback(async () => {
+    if (!loadSyncConfig() || !vaultRef.current || !keyRef.current) {
+      if (!loadSyncConfig()) setSyncState({ kind: 'off' })
+      return
+    }
+    await saving.current
+    setSyncState({ kind: 'syncing' })
+    try {
+      const result = await sync(vaultRef.current)
+      if (result.kind === 'pulled') {
+        const remoteData = await decryptJson<AppData>(keyRef.current, result.vault.payload)
+        await storeVault(result.vault)
+        showData({ ...emptyData(), ...remoteData })
+      }
+      if (result.kind === 'conflict') setSyncState({ kind: 'conflict', remote: result.remote })
+      else setSyncState({ kind: 'ok', at: new Date().toISOString() })
+    } catch (e) {
+      setSyncState({ kind: 'error', message: (e as Error).message })
+    }
   }, [])
 
-  // Référence à jour des données, pour enchaîner plusieurs modifications dans un même geste.
-  const dataRef = useRef(data)
+  const scheduleSync = useCallback(() => {
+    if (!loadSyncConfig()) return
+    window.clearTimeout(syncTimer.current)
+    syncTimer.current = window.setTimeout(runSync, SYNC_DELAY_MS)
+  }, [runSync])
+
+  const persist = useCallback(
+    (next: AppData) => {
+      // Les sauvegardes sont mises en file pour garder l'ordre des révisions.
+      saving.current = saving.current.then(async () => {
+        if (!vaultRef.current || !keyRef.current) return
+        await storeVault(await sealPayload(vaultRef.current, keyRef.current, next))
+      })
+      scheduleSync()
+    },
+    [scheduleSync],
+  )
 
   const commit = useCallback(
     (next: AppData) => {
-      dataRef.current = next
-      setData(next)
+      showData(next)
       persist(next)
     },
     [persist],
@@ -80,28 +133,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
-  const replaceAll = commit
-
   const open = async (vault: Vault, key: CryptoKey) => {
     const decoded = await decryptJson<AppData>(key, vault.payload)
     keyRef.current = key
     vaultRef.current = vault
     setVaultState(vault)
-    const loaded = { ...emptyData(), ...decoded }
-    dataRef.current = loaded
-    setData(loaded)
+    showData({ ...emptyData(), ...decoded })
     setStatus('unlocked')
+    void runSync()
   }
 
   const create = async (passphrase: string) => {
     const initial = emptyData()
     const { vault, key, recoveryCode } = await createVault(passphrase, initial)
-    await saveVault(vault)
+    await storeVault(vault)
     keyRef.current = key
-    vaultRef.current = vault
-    setVaultState(vault)
-    dataRef.current = initial
-    setData(initial)
+    showData(initial)
     // Le statut passe à « unlocked » seulement après confirmation de la clé de secours (finishSetup).
     return recoveryCode
   }
@@ -114,24 +161,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const recover = async (code: string, newPassphrase: string) => {
     const key = await unlockWithRecovery(vaultRef.current!, code)
     const vault = await changePassphrase(vaultRef.current!, key, newPassphrase)
-    await saveVault(vault)
-    await open(vault, key)
+    const bumped = { ...vault, revision: vault.revision + 1 }
+    await storeVault(bumped)
+    await open(bumped, key)
   }
 
   const setPassphrase = async (newPassphrase: string) => {
     await saving.current
     const vault = await changePassphrase(vaultRef.current!, keyRef.current!, newPassphrase)
-    vaultRef.current = vault
-    setVaultState(vault)
-    await saveVault(vault)
+    await storeVault({ ...vault, revision: vault.revision + 1 })
+    scheduleSync()
   }
 
-  const finishSetup = () => setStatus('unlocked')
+  const adoptVault = async (vault: Vault) => {
+    acceptRemote(vault)
+    await storeVault(vault)
+    setStatus('locked')
+  }
+
+  const resolveConflict = async (keep: 'local' | 'remote') => {
+    if (syncState.kind !== 'conflict' || !keyRef.current) return
+    const remote = syncState.remote
+    if (keep === 'remote') {
+      const remoteData = await decryptJson<AppData>(keyRef.current, remote.payload)
+      acceptRemote(remote)
+      await storeVault(remote)
+      showData({ ...emptyData(), ...remoteData })
+    } else {
+      // On repart de la révision du serveur pour que la version locale passe devant.
+      const local = { ...vaultRef.current!, revision: Math.max(remote.revision, vaultRef.current!.revision) + 1 }
+      await storeVault(local)
+      await push(local)
+    }
+    setSyncState({ kind: 'ok', at: new Date().toISOString() })
+  }
+
+  const finishSetup = () => {
+    setStatus('unlocked')
+    void runSync()
+  }
 
   const lock = useCallback(() => {
     keyRef.current = null
-    dataRef.current = emptyData()
-    setData(dataRef.current)
+    showData(emptyData())
     setStatus((s) => (s === 'unlocked' ? 'locked' : s))
   }, [])
 
@@ -151,9 +223,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [status, lock])
 
+  // Synchro au retour sur l'app (changement d'onglet, réouverture sur le téléphone).
+  useEffect(() => {
+    if (status !== 'unlocked') return
+    const onVisible = () => document.visibilityState === 'visible' && void runSync()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [status, runSync])
+
   return (
     <Ctx.Provider
-      value={{ status, data, update, create, finishSetup, unlock, recover, setPassphrase, lock, replaceAll, vault: vaultState }}
+      value={{
+        status,
+        data,
+        update,
+        create,
+        finishSetup,
+        unlock,
+        recover,
+        setPassphrase,
+        lock,
+        replaceAll: commit,
+        adoptVault,
+        vault: vaultState,
+        syncState,
+        syncNow: runSync,
+        resolveConflict,
+      }}
     >
       {children}
     </Ctx.Provider>
