@@ -153,5 +153,6 @@ export const SETUP_SQL = `create table if not exists public.vaults (
   updated_at timestamptz not null default now()
 );
 alter table public.vaults enable row level security;
+grant select, insert, update, delete on public.vaults to authenticated;
 create policy "Chacun son coffre" on public.vaults
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`
