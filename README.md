@@ -22,5 +22,9 @@ npx vite build --mode artifact --outDir dist-artifact   # version d'essai publi�
 
 ## Mise en ligne
 
-1. Héberger `dist/` sur un hébergeur statique (Cloudflare Pages, Netlify ou GitHub Pages).
-2. Synchro : créer un projet Supabase (région Europe), exécuter le script affiché dans Réglages › Sécurité, puis saisir l'adresse et la clé publique du projet dans l'app.
+L'app est publiée sur https://nimo-project.github.io/mon-budget/ à chaque envoi sur `main`
+(`.github/workflows/deploy.yml`, GitHub Pages en source « GitHub Actions »).
+
+Synchro : le projet Supabase (région Europe) est intégré via `.env` (adresse et clé publique, sans secret).
+Le script de création de la table est dans `src/sync/remote.ts` (`SETUP_SQL`). Dans Supabase,
+Authentication › URL Configuration › Site URL doit pointer vers l'adresse de l'app.
