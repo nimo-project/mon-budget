@@ -94,7 +94,10 @@ export function normalizeLabel(label: string): string {
     .replace(/[̀-ͯ]/g, '')
     .toUpperCase()
     .replace(/\b(CB|PRLV|SEPA|VIR|CARTE|PAIEMENT|PAR|DU|X\d+)\b/g, ' ')
-    .replace(/\d{2}[/.]\d{2}([/.]\d{2,4})?/g, ' ')
+    // Dates collées au libellé : 15/10, 15.10.26, 15-10-2026, 2026-10-15, 15OCT, 15 OCT 26…
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ')
+    .replace(/\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?/g, ' ')
+    .replace(/\b\d{1,2} ?(JAN|FEV|FEB|MAR|AVR|APR|MAI|MAY|JUN|JUIN|JUL|JUIL|AOU|AUG|SEP|OCT|NOV|DEC)[A-Z]*( ?\d{2,4})?\b/g, ' ')
     .replace(/\b\d{4,}\b/g, ' ')
     .replace(/[^A-Z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ')
