@@ -62,6 +62,11 @@ function remapCategory(data: AppData, from: Set<string>, to: string): AppData {
     budget: mergeBudget(
       data.budget.map((b) => ({ ...b, categoryId: map(b.categoryId)! })),
     ),
+    periodBudgets:
+      data.periodBudgets &&
+      Object.fromEntries(
+        Object.entries(data.periodBudgets).map(([k, lines]) => [k, mergeBudget(lines.map((b) => ({ ...b, categoryId: map(b.categoryId)! })))]),
+      ),
     annualExpenses: data.annualExpenses.map((e) => ({ ...e, categoryId: map(e.categoryId) })),
     investments: data.investments.map((i) => ({ ...i, categoryId: map(i.categoryId)! })),
     rollovers: data.rollovers.map((r) => ({ ...r, categoryId: map(r.categoryId)! })),

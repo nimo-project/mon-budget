@@ -1,5 +1,5 @@
 import { categoryMap, subtree } from './categories'
-import { previousPeriod, type Period } from './periods'
+import { currentPeriod, periodKey, previousPeriod, type Period } from './periods'
 import { totalsByCategory } from './transactions'
 import type { AppData, BudgetKind, BudgetLine, CategoryKind } from './types'
 import { sum } from './util'
@@ -36,11 +36,58 @@ export interface PeriodSummary {
 
 const OUTFLOW: CategoryKind[] = ['depense', 'epargne', 'investissement']
 
+/** Budget qui s'applique à une période : le sien s'il a été figé ou ajusté, sinon le budget de base. */
+export function budgetFor(data: AppData, period: Period): BudgetLine[] {
+  return data.periodBudgets?.[periodKey(period)] ?? data.budget
+}
+
+export function hasOwnBudget(data: AppData, period: Period): boolean {
+  return !!data.periodBudgets?.[periodKey(period)]
+}
+
+/** Enregistre un budget propre à la période (null : revient au budget de base). */
+export function setPeriodBudget(data: AppData, period: Period, lines: BudgetLine[] | null): AppData {
+  const periodBudgets = { ...data.periodBudgets }
+  if (lines) periodBudgets[periodKey(period)] = lines
+  else delete periodBudgets[periodKey(period)]
+  return {
+    ...data,
+    periodBudgets,
+    settings: { ...data.settings, budgetSince: data.settings.budgetSince ?? (lines?.length ? period.start : undefined) },
+  }
+}
+
+/**
+ * Modifie le budget de base à partir de la période en cours. Les périodes passées gardent le budget
+ * qui était prévu pour elles : on le fige avant d'appliquer le changement.
+ */
+export function updateBaseBudget(data: AppData, change: (lines: BudgetLine[]) => BudgetLine[]): AppData {
+  const current = currentPeriod(data)
+  const periodBudgets = { ...data.periodBudgets }
+  const since = data.settings.budgetSince
+  if (since && data.budget.length) {
+    let p = previousPeriod(current, data)
+    for (let i = 0; i < 120 && p.end >= since; i++) {
+      periodBudgets[periodKey(p)] ??= data.budget
+      const prev = previousPeriod(p, data)
+      if (prev.start === p.start) break
+      p = prev
+    }
+  }
+  return {
+    ...data,
+    budget: change(data.budget),
+    periodBudgets,
+    // Les restes à décider commencent avec la première période où un budget existe.
+    settings: { ...data.settings, budgetSince: since ?? current.start },
+  }
+}
+
 /** Lignes de budget dont aucun ancêtre n'a déjà une ligne : évite de compter deux fois. */
-export function topLines(data: AppData): BudgetLine[] {
+export function topLines(data: AppData, lines: BudgetLine[] = data.budget): BudgetLine[] {
   const map = categoryMap(data.categories)
-  const withLine = new Set(data.budget.map((b) => b.categoryId))
-  return data.budget.filter((b) => {
+  const withLine = new Set(lines.map((b) => b.categoryId))
+  return lines.filter((b) => {
     let p = map.get(b.categoryId)?.parentId
     while (p) {
       if (withLine.has(p)) return false
@@ -58,10 +105,11 @@ export function summarize(data: AppData, period: Period): PeriodSummary {
   const totals = totalsByCategory(data, period.start, period.end)
   const map = categoryMap(data.categories)
   const prev = previousPeriod(period, data)
-  const tops = new Set(topLines(data).map((l) => l.id))
+  const lines = budgetFor(data, period)
+  const tops = new Set(topLines(data, lines).map((l) => l.id))
   const covered = new Set<string>()
 
-  const envelopes: EnvelopeStatus[] = data.budget.map((line) => {
+  const envelopes: EnvelopeStatus[] = lines.map((line) => {
     const ids = subtree(line.categoryId, data.categories)
     for (const id of ids) covered.add(id)
     const kind = map.get(line.categoryId)?.kind ?? 'depense'

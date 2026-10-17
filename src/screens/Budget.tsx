@@ -1,12 +1,22 @@
 import { useState } from 'react'
-import { BUDGET_KIND_LABEL, monthlyAnnualProvision, summarize, topLines } from '../domain/budget'
+import {
+  BUDGET_KIND_LABEL,
+  budgetFor,
+  hasOwnBudget,
+  monthlyAnnualProvision,
+  setPeriodBudget,
+  summarize,
+  topLines,
+  updateBaseBudget,
+} from '../domain/budget'
 import { categoryLabel, categoryMap } from '../domain/categories'
 import { forecast } from '../domain/insights'
 import { currentPeriod, nextPeriod, periodLabel, previousPeriod, type Period } from '../domain/periods'
-import type { BudgetKind, CategoryKind } from '../domain/types'
+import type { BudgetKind, BudgetLine, CategoryKind } from '../domain/types'
 import { formatMoney, sum, today, uid } from '../domain/util'
 import { useStore } from '../state/store'
 import { CategorySelect, Money, MoneyInput, PageHead } from '../ui/fields'
+import { Sheet } from '../ui/Sheet'
 import { EnvelopeList } from './Dashboard'
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
@@ -34,11 +44,20 @@ export function BudgetScreen() {
   )
 }
 
+/** Jusqu'où on peut avancer pour planifier un budget (voyage prévu, dépense arrêtée…). */
+const PLAN_AHEAD = 12
+
 function Tracking() {
-  const { data } = useStore()
+  const { data, update } = useStore()
   const [period, setPeriod] = useState<Period>(() => currentPeriod(data))
+  const [editing, setEditing] = useState(false)
+  const current = currentPeriod(data)
   const summary = summarize(data, period)
-  const isCurrent = period.start === currentPeriod(data).start
+  const isFuture = period.start > current.start
+  const isPast = period.end < current.start
+  const own = hasOwnBudget(data, period)
+  let last = current
+  for (let i = 0; i < PLAN_AHEAD; i++) last = nextPeriod(last, data)
   return (
     <div className="stack">
       <div className="row between">
@@ -46,31 +65,72 @@ function Tracking() {
           ← Précédente
         </button>
         <strong className="small">Période {periodLabel(period)}</strong>
-        <button className="btn small" disabled={isCurrent} onClick={() => setPeriod(nextPeriod(period, data))}>
+        <button className="btn small" disabled={period.start >= last.start} onClick={() => setPeriod(nextPeriod(period, data))}>
           Suivante →
         </button>
       </div>
-      <div className="card grid2">
-        <div>
-          <div className="muted small">Revenus</div>
-          <Money cents={summary.income} />
-        </div>
-        <div>
-          <div className="muted small">Prévu</div>
-          <Money cents={summary.plannedOut} />
-        </div>
-        <div>
-          <div className="muted small">Réel</div>
-          <Money cents={summary.actualOut} className={summary.actualOut > summary.plannedOut ? 'over' : ''} />
-        </div>
-        <div>
-          <div className="muted small">Hors budget</div>
-          <Money cents={summary.unbudgeted} />
+      {period.start !== current.start && (
+        <button className="btn small ghost" style={{ alignSelf: 'center' }} onClick={() => setPeriod(current)}>
+          Revenir à la période en cours
+        </button>
+      )}
+      <div className="card row between">
+        <span className="small">
+          {own
+            ? isPast
+              ? 'Budget qui était prévu pour cette période.'
+              : 'Budget ajusté pour cette période.'
+            : 'Budget de base.'}
+        </span>
+        <div className="row">
+          {own && !isPast && (
+            <button className="btn small ghost" onClick={() => update((d) => setPeriodBudget(d, period, null))}>
+              Revenir au budget de base
+            </button>
+          )}
+          <button className="btn small" onClick={() => setEditing(true)}>
+            {isFuture ? 'Planifier cette période' : 'Ajuster cette période'}
+          </button>
         </div>
       </div>
+      {!isFuture && (
+        <div className="card grid2">
+          <div>
+            <div className="muted small">Revenus</div>
+            <Money cents={summary.income} />
+          </div>
+          <div>
+            <div className="muted small">Prévu</div>
+            <Money cents={summary.plannedOut} />
+          </div>
+          <div>
+            <div className="muted small">Réel</div>
+            <Money cents={summary.actualOut} className={summary.actualOut > summary.plannedOut ? 'over' : ''} />
+          </div>
+          <div>
+            <div className="muted small">Hors budget</div>
+            <Money cents={summary.unbudgeted} />
+          </div>
+        </div>
+      )}
       <div className="card">
-        {summary.envelopes.length ? <EnvelopeList envelopes={summary.envelopes} period={period} /> : <p className="muted">Aucune ligne de budget.</p>}
+        {summary.envelopes.length ? (
+          <EnvelopeList envelopes={summary.envelopes} period={period} />
+        ) : (
+          <p className="muted">Aucune ligne de budget.</p>
+        )}
       </div>
+      {editing && (
+        <Sheet title={`Budget ${periodLabel(period)}`} onClose={() => setEditing(false)}>
+          <p className="small muted">
+            Ces changements ne valent que pour cette période. Pour changer toutes les périodes à venir, modifie le budget de base.
+          </p>
+          <BudgetLinesEditor
+            lines={budgetFor(data, period)}
+            onChange={(change) => update((d) => setPeriodBudget(d, period, change(budgetFor(d, period))))}
+          />
+        </Sheet>
+      )}
     </div>
   )
 }
@@ -83,28 +143,9 @@ function defaultKind(kind: CategoryKind | undefined): BudgetKind {
 
 function BaseBudget() {
   const { data, update } = useStore()
-  const map = categoryMap(data.categories)
-  const [categoryId, setCategoryId] = useState<string | undefined>()
-  const [kind, setKind] = useState<BudgetKind>('variable')
-  const [amount, setAmount] = useState<number | null>(null)
-  const [formKey, setFormKey] = useState(0)
   const income = forecast(data).income
   const plannedOut = sum(topLines(data), (l) => l.amount) + monthlyAnnualProvision(data)
 
-  const add = () => {
-    if (!categoryId || !amount) return
-    update((d) => ({
-      ...d,
-      budget: [...d.budget.filter((b) => b.categoryId !== categoryId), { id: uid(), categoryId, kind, amount: Math.abs(amount) }],
-      // Les restes à décider commencent avec la première période où un budget existe.
-      settings: { ...d.settings, budgetSince: d.settings.budgetSince ?? currentPeriod(d).start },
-    }))
-    setCategoryId(undefined)
-    setAmount(null)
-    setFormKey(formKey + 1)
-  }
-
-  const kinds: BudgetKind[] = ['fixe', 'variable', 'epargne', 'investissement']
   return (
     <div className="stack">
       <div className="card">
@@ -125,34 +166,68 @@ function BaseBudget() {
             Inclut {formatMoney(monthlyAnnualProvision(data))} de provision pour les dépenses annuelles.
           </p>
         )}
+        <p className="small muted" style={{ marginTop: '0.5rem' }}>
+          Le budget de base s'applique à la période en cours et aux suivantes. Les périodes passées gardent le budget qui était prévu
+          pour elles. Pour une période particulière (voyage…), utilise « Ajuster cette période » dans Prévu / réel.
+        </p>
       </div>
+      <BudgetLinesEditor lines={data.budget} onChange={(change) => update((d) => updateBaseBudget(d, change))} />
+    </div>
+  )
+}
 
+/** Édition d'une liste de lignes de budget (budget de base ou budget d'une période). */
+function BudgetLinesEditor({
+  lines,
+  onChange,
+}: {
+  lines: BudgetLine[]
+  onChange: (change: (lines: BudgetLine[]) => BudgetLine[]) => void
+}) {
+  const { data } = useStore()
+  const map = categoryMap(data.categories)
+  const [categoryId, setCategoryId] = useState<string | undefined>()
+  const [kind, setKind] = useState<BudgetKind>('variable')
+  const [amount, setAmount] = useState<number | null>(null)
+  const [formKey, setFormKey] = useState(0)
+  const tops = topLines(data, lines)
+
+  const add = () => {
+    if (!categoryId || !amount) return
+    onChange((ls) => [...ls.filter((b) => b.categoryId !== categoryId), { id: uid(), categoryId, kind, amount: Math.abs(amount) }])
+    setCategoryId(undefined)
+    setAmount(null)
+    setFormKey(formKey + 1)
+  }
+
+  const kinds: BudgetKind[] = ['fixe', 'variable', 'epargne', 'investissement']
+  return (
+    <div className="stack">
       {kinds.map((k) => {
-        const lines = data.budget.filter((b) => b.kind === k)
+        const group = lines.filter((b) => b.kind === k)
         return (
           <div className="card" key={k}>
             <div className="row between">
               <h2 style={{ margin: 0 }}>{BUDGET_KIND_LABEL[k]}</h2>
-              <Money cents={sum(lines.filter((l) => topLines(data).includes(l)), (l) => l.amount)} />
+              <Money cents={sum(group.filter((l) => tops.includes(l)), (l) => l.amount)} />
             </div>
-            {lines.length === 0 && <p className="muted small">Aucune ligne.</p>}
+            {group.length === 0 && <p className="muted small">Aucune ligne.</p>}
             <ul className="list">
-              {lines.map((l) => (
+              {group.map((l) => (
                 <li key={l.id} className="row">
                   <span className="grow">{categoryLabel(l.categoryId, map)}</span>
                   <div style={{ width: 120 }}>
                     <MoneyInput
                       value={l.amount}
                       onChange={(v) =>
-                        v !== null &&
-                        update((d) => ({ ...d, budget: d.budget.map((b) => (b.id === l.id ? { ...b, amount: Math.abs(v) } : b)) }))
+                        v !== null && onChange((ls) => ls.map((b) => (b.id === l.id ? { ...b, amount: Math.abs(v) } : b)))
                       }
                     />
                   </div>
                   <button
                     className="btn small ghost danger"
                     aria-label="Supprimer"
-                    onClick={() => update((d) => ({ ...d, budget: d.budget.filter((b) => b.id !== l.id) }))}
+                    onClick={() => onChange((ls) => ls.filter((b) => b.id !== l.id))}
                   >
                     ×
                   </button>

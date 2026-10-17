@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { categorize, decideRollover, linkReimbursement } from './actions'
-import { pendingRollovers, summarize } from './budget'
+import { pendingRollovers, setPeriodBudget, summarize, updateBaseBudget } from './budget'
 import { mergeCategory } from './categories'
 import { emptyData } from './defaults'
 import { analyze, forecast, recurringDebits } from './insights'
-import { currentPeriod, periodFor, previousPeriod } from './periods'
+import { currentPeriod, nextPeriod, periodFor, periodKey, previousPeriod } from './periods'
 import { potStatuses, suggestAllocation, UNALLOCATED_POT } from './savings'
 import type { AppData, Transaction } from './types'
 
@@ -41,6 +41,50 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-10-15T10:00:00Z'))
 })
 afterEach(() => vi.useRealTimers())
+
+describe('budget par période', () => {
+  const plaisir = (d: AppData, p = currentPeriod(d)) => summarize(d, p).envelopes.find((e) => e.line.categoryId === 'cat-plaisir')
+
+  it('les périodes passées gardent le budget prévu quand le budget de base change', () => {
+    let d = base()
+    const prev = previousPeriod(currentPeriod(d), d)
+    d = updateBaseBudget(d, (ls) => ls.map((l) => (l.id === 'b2' ? { ...l, amount: 15000 } : l)))
+    expect(plaisir(d)?.planned).toBe(15000)
+    expect(plaisir(d, prev)?.planned).toBe(20000)
+    // Un deuxième changement ne réécrit pas le budget déjà figé.
+    d = updateBaseBudget(d, (ls) => ls.map((l) => (l.id === 'b2' ? { ...l, amount: 10000 } : l)))
+    expect(plaisir(d, prev)?.planned).toBe(20000)
+  })
+
+  it('une période peut avoir son propre budget (voyage), sans toucher aux autres', () => {
+    let d = base()
+    const next = nextPeriod(currentPeriod(d), d)
+    d = setPeriodBudget(d, next, [...d.budget, { id: 'v', categoryId: 'cat-voyages', kind: 'variable', amount: 80000 }])
+    expect(summarize(d, next).envelopes.some((e) => e.line.categoryId === 'cat-voyages')).toBe(true)
+    expect(summarize(d, currentPeriod(d)).envelopes.some((e) => e.line.categoryId === 'cat-voyages')).toBe(false)
+    // Le budget de base qui change ne modifie pas une période ajustée à la main.
+    d = updateBaseBudget(d, (ls) => ls.filter((l) => l.id !== 'b2'))
+    expect(plaisir(d, next)?.planned).toBe(20000)
+    d = setPeriodBudget(d, next, null)
+    expect(plaisir(d, next)).toBeUndefined()
+  })
+
+  it('la clé de période reste la même si le salaire arrive quelques jours plus tôt', () => {
+    expect(periodKey({ start: '2026-11-27', end: '2026-12-26', estimated: true })).toBe('2026-12')
+    expect(periodKey({ start: '2026-11-30', end: '2026-12-28', estimated: false })).toBe('2026-12')
+  })
+
+  it('on peut avancer de période en période dans le futur', () => {
+    const d = base()
+    let p = currentPeriod(d)
+    const starts = []
+    for (let i = 0; i < 3; i++) {
+      p = nextPeriod(p, d)
+      starts.push(p.start)
+    }
+    expect(starts).toEqual(['2026-10-27', '2026-11-27', '2026-12-27'])
+  })
+})
 
 describe('périodes de paie', () => {
   it('commencent le jour du salaire, même si la date varie', () => {

@@ -37,7 +37,10 @@ export function periodFor(date: string, data: AppData, dates = salaryDates(data)
   if (before.length) {
     const start = before[before.length - 1]
     if (after.length) return { start, end: addDays(after[0], -1), estimated: false }
-    return { start, end: addDays(addMonths(start, 1), -1), estimated: true }
+    // Après le dernier salaire connu : périodes estimées de mois en mois (pour planifier à l'avance).
+    let s = start
+    while (addMonths(s, 1) <= date) s = addMonths(s, 1)
+    return { start: s, end: addDays(addMonths(s, 1), -1), estimated: true }
   }
   // Pas encore de salaire avant cette date : on prend le mois calendaire, coupé au prochain salaire.
   const monthStart = date.slice(0, 8) + '01'
@@ -63,6 +66,14 @@ export function lastPeriods(data: AppData, count: number, from = currentPeriod(d
   const out = [from]
   while (out.length < count) out.unshift(previousPeriod(out[0], data))
   return out
+}
+
+/**
+ * Mois auquel se rattache une période (celui où tombe la majorité de ses jours), ex. « 2026-11 ».
+ * Sert de clé stable même si le salaire arrive 2 ou 3 jours plus tôt ou plus tard que prévu.
+ */
+export function periodKey(p: Period): string {
+  return addDays(p.start, 15).slice(0, 7)
 }
 
 export function periodLabel(p: Period): string {

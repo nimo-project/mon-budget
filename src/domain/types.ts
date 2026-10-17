@@ -155,7 +155,13 @@ export interface AppData {
   categories: Category[]
   transactions: Transaction[]
   rules: Rule[]
+  /** Budget de base : s'applique à la période en cours et aux suivantes. */
   budget: BudgetLine[]
+  /**
+   * Budget propre à une période, par mois de période (« 2026-11 », voir periodKey) : périodes passées figées
+   * quand le budget de base change, ou période ajustée à la main (voyage, dépense supprimée…).
+   */
+  periodBudgets?: Record<string, BudgetLine[]>
   annualExpenses: AnnualExpense[]
   pots: Pot[]
   potMovements: PotMovement[]
