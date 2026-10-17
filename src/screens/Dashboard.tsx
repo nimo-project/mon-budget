@@ -9,6 +9,8 @@ import { accountBalance, allocatedTo, spentOn } from '../domain/transactions'
 import type { RolloverAction } from '../domain/types'
 import { daysBetween, formatDate, formatMoney, today } from '../domain/util'
 import { useStore } from '../state/store'
+import { CategoryBars, HistoryBars, Legend, PaceChart } from '../ui/charts'
+import { plannedSpending, spendingByCategory, spendingHistory, spendingPace } from '../domain/charts'
 import { Money, PageHead, ProgressBar } from '../ui/fields'
 import { EnvelopeDetail } from './EnvelopeDetail'
 
@@ -21,6 +23,14 @@ export function Dashboard() {
   const fc = forecast(data, summary)
   const upcoming = upcomingDebits(data, period)
   const daysLeft = Math.max(0, daysBetween(today(), period.end))
+  const pace = spendingPace(data, period)
+  const byCategory = spendingByCategory(data, period)
+  const history = spendingHistory(data)
+  const plannedSpend = plannedSpending(data, period)
+  const spentSoFar = pace.reduce((v, p) => p.actual ?? v, 0)
+  const totalDays = daysBetween(period.start, period.end) + 1
+  const timePct = Math.round((Math.min(totalDays, daysBetween(period.start, today()) + 1) / totalDays) * 100)
+  const spentPct = plannedSpend > 0 ? Math.round((spentSoFar / plannedSpend) * 100) : 0
 
   if (!data.accounts.length) return <Onboarding />
 
@@ -45,45 +55,79 @@ export function Dashboard() {
 
       {pending.length > 0 && <RolloverDecisions />}
 
-      <div className="grid2">
-        <div className="card">
-          <div className="muted small">Prévision le jour de ta paie</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700 }} className={fc.projectedLeft < 0 ? 'over' : ''}>
-            <Money cents={fc.projectedLeft} />
+      <div className="card stack">
+        <div className="hero-head">
+          <div>
+            <div className="muted small">Reste à dépenser sur la période</div>
+            <div className={`hero-amount${plannedSpend - spentSoFar < 0 ? ' over' : ''}`}>
+              <Money cents={plannedSpend - spentSoFar} />
+            </div>
+            <div className="small muted">
+              {formatMoney(spentSoFar)} dépensés sur {formatMoney(plannedSpend)} prévus
+            </div>
           </div>
-          <div className="small muted">
-            Revenus {formatMoney(fc.income)} − dépensé {formatMoney(fc.spentSoFar)} − prélèvements à venir{' '}
-            {formatMoney(fc.upcoming)} − dépenses courantes estimées {formatMoney(fc.variablePace)}
+          <div className="hero-side">
+            <div className="muted small">Prévision le jour de ta paie</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700 }} className={fc.projectedLeft < 0 ? 'over' : ''}>
+              <Money cents={fc.projectedLeft} />
+            </div>
           </div>
         </div>
+        <div className="meter">
+          <span className="muted">Période écoulée</span>
+          <span className="meter-track">
+            <span className="meter-fill time" style={{ width: `${timePct}%` }} />
+          </span>
+          <span>{timePct} %</span>
+        </div>
+        <div className="meter">
+          <span className="muted">Budget dépensé</span>
+          <span className="meter-track">
+            <span
+              className={`meter-fill${spentPct > timePct + 5 ? ' over' : ''}`}
+              style={{ width: `${Math.min(100, spentPct)}%` }}
+            />
+          </span>
+          <span>{spentPct} %</span>
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          {plannedSpend === 0
+            ? 'Définis ton budget pour suivre ton rythme de dépenses.'
+            : spentPct > timePct + 5
+              ? 'Tu dépenses plus vite que prévu pour cette période.'
+              : 'Ton rythme de dépenses est dans les clous.'}
+        </p>
+        <details className="small muted">
+          <summary>Détail de la prévision</summary>
+          Revenus {formatMoney(fc.income)} − dépensé {formatMoney(fc.spentSoFar)} − prélèvements à venir{' '}
+          {formatMoney(fc.upcoming)} − dépenses courantes estimées {formatMoney(fc.variablePace)}
+          {summary.extra > 0 && <> · extra reporté {formatMoney(summary.extra)}</>}
+        </details>
+      </div>
+
+      <div className="grid2">
         <div className="card">
-          <div className="muted small">Cette période</div>
-          <div className="row between">
-            <span>Revenus</span>
-            <Money cents={summary.income} />
-          </div>
-          <div className="row between">
-            <span>Prévu</span>
-            <Money cents={summary.plannedOut} />
-          </div>
-          <div className="row between">
-            <span>Réel</span>
-            <Money cents={summary.actualOut} className={summary.actualOut > summary.plannedOut ? 'over' : ''} />
-          </div>
-          {summary.unbudgeted > 0 && (
-            <div className="row between small muted">
-              <span>dont hors budget</span>
-              <Money cents={summary.unbudgeted} />
-            </div>
-          )}
-          {summary.extra > 0 && (
-            <div className="row between small">
-              <span>Extra reporté</span>
-              <Money cents={summary.extra} />
-            </div>
+          <h2>Rythme de dépenses</h2>
+          <Legend items={[{ label: 'Dépensé' }, { label: 'Prévu, réparti sur la période', dashed: true }]} />
+          <PaceChart points={pace} />
+        </div>
+        <div className="card">
+          <h2>Où va ton argent</h2>
+          {byCategory.length ? (
+            <CategoryBars rows={byCategory} />
+          ) : (
+            <p className="muted small">Aucune dépense sur cette période pour l'instant.</p>
           )}
         </div>
       </div>
+
+      {history.some((h) => h.spent > 0) && (
+        <div className="card">
+          <h2>Tes dernières périodes</h2>
+          <Legend items={[{ label: 'Dépensé (période en cours en clair)' }, { label: 'Prévu', soft: true }]} />
+          <HistoryBars rows={history} />
+        </div>
+      )}
 
       <div className="card">
         <div className="row between" style={{ marginBottom: '0.5rem' }}>
