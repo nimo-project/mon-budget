@@ -60,7 +60,9 @@ function Accounts() {
   return (
     <div className="stack">
       <div className="card">
-        {data.accounts.length === 0 && <p className="muted">Aucun compte. Ajoute Boursobank, SG, Revolut et ton compte épargne.</p>}
+        {data.accounts.length === 0 && (
+          <p className="muted">Aucun compte. Ajoute Boursobank, SG, Revolut et ton compte épargne.</p>
+        )}
         <ul className="list">
           {data.accounts.map((a) => (
             <li key={a.id}>
@@ -314,14 +316,22 @@ function CategoryForm({
         )}
         {c.kind === 'revenu' && (
           <label className="inline">
-            <input type="checkbox" checked={!!c.isSalary} onChange={(e) => setC({ ...c, isSalary: e.target.checked || undefined })} />
+            <input
+              type="checkbox"
+              checked={!!c.isSalary}
+              onChange={(e) => setC({ ...c, isSalary: e.target.checked || undefined })}
+            />
             C'est mon salaire (marque le début d'une période)
           </label>
         )}
         {category.id && (
           <>
             <label className="inline">
-              <input type="checkbox" checked={!!c.archived} onChange={(e) => setC({ ...c, archived: e.target.checked || undefined })} />
+              <input
+                type="checkbox"
+                checked={!!c.archived}
+                onChange={(e) => setC({ ...c, archived: e.target.checked || undefined })}
+              />
               Archiver (masquée dans les listes, l'historique est conservé)
             </label>
             <label>
@@ -392,7 +402,9 @@ function Rules() {
                   allowEmpty={false}
                   onChange={(id) =>
                     id &&
-                    update((d) => applyRulesToReview({ ...d, rules: d.rules.map((x) => (x.id === r.id ? { ...x, categoryId: id } : x)) }))
+                    update((d) =>
+                      applyRulesToReview({ ...d, rules: d.rules.map((x) => (x.id === r.id ? { ...x, categoryId: id } : x)) }),
+                    )
                   }
                 />
               </div>
@@ -464,7 +476,12 @@ function Security() {
         </label>
         <label>
           Confirmer
-          <input type="password" autoComplete="new-password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} />
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={confirmPass}
+            onChange={(e) => setConfirmPass(e.target.value)}
+          />
         </label>
         <div className="row">
           <button className="btn primary" onClick={change}>
@@ -483,8 +500,8 @@ function Security() {
       <div className="card stack">
         <h2>Sauvegarde</h2>
         <p className="small muted">
-          Le fichier de sauvegarde est chiffré : il ne s'ouvre qu'avec ta phrase secrète (celle du moment de la sauvegarde) ou ta clé de
-          secours.
+          Le fichier de sauvegarde est chiffré : il ne s'ouvre qu'avec ta phrase secrète (celle du moment de la sauvegarde) ou ta
+          clé de secours.
         </p>
         <div className="row">
           <button

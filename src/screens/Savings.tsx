@@ -42,7 +42,9 @@ export function SavingsScreen() {
       </PageHead>
 
       {!hasSavingsAccount && (
-        <div className="card warn">Ajoute ton compte épargne dans Réglages pour suivre son solde et le répartir en cagnottes.</div>
+        <div className="card warn">
+          Ajoute ton compte épargne dans Réglages pour suivre son solde et le répartir en cagnottes.
+        </div>
       )}
 
       {pending.length > 0 && (
@@ -136,7 +138,11 @@ function SplitBar({ items }: { items: { name: string; value: number; type: strin
         {items
           .filter((i) => i.value > 0)
           .map((i) => (
-            <span key={i.name} title={`${i.name} : ${formatMoney(i.value)}`} style={{ flex: i.value, background: COLORS[i.type] }} />
+            <span
+              key={i.name}
+              title={`${i.name} : ${formatMoney(i.value)}`}
+              style={{ flex: i.value, background: COLORS[i.type] }}
+            />
           ))}
       </div>
       <div className="row small" style={{ marginTop: '0.4rem', gap: '0.9rem' }}>
@@ -161,7 +167,9 @@ function PotForm({ pot, onClose }: { pot: Pot; onClose: () => void }) {
     if (!p.name.trim()) return
     update((d) => ({
       ...d,
-      pots: p.id ? d.pots.map((x) => (x.id === p.id ? { ...p, name: p.name.trim() } : x)) : [...d.pots, { ...p, id: uid(), name: p.name.trim() }],
+      pots: p.id
+        ? d.pots.map((x) => (x.id === p.id ? { ...p, name: p.name.trim() } : x))
+        : [...d.pots, { ...p, id: uid(), name: p.name.trim() }],
     }))
     onClose()
   }
@@ -186,7 +194,10 @@ function PotForm({ pot, onClose }: { pot: Pot; onClose: () => void }) {
         <div className="grid2">
           <label>
             Objectif (€, facultatif)
-            <MoneyInput value={p.goalAmount ?? null} onChange={(v) => setP({ ...p, goalAmount: v === null ? undefined : Math.abs(v) })} />
+            <MoneyInput
+              value={p.goalAmount ?? null}
+              onChange={(v) => setP({ ...p, goalAmount: v === null ? undefined : Math.abs(v) })}
+            />
           </label>
           <label>
             Pour le (facultatif)
@@ -200,7 +211,11 @@ function PotForm({ pot, onClose }: { pot: Pot; onClose: () => void }) {
       </label>
       {pot.id && p.type === 'projet' && (
         <label className="inline">
-          <input type="checkbox" checked={!!p.archived} onChange={(e) => setP({ ...p, archived: e.target.checked || undefined })} />
+          <input
+            type="checkbox"
+            checked={!!p.archived}
+            onChange={(e) => setP({ ...p, archived: e.target.checked || undefined })}
+          />
           Projet terminé (archiver ; déplace d'abord son solde)
         </label>
       )}
@@ -258,7 +273,10 @@ function MoveForm({ onClose }: { onClose: () => void }) {
           className="btn primary"
           disabled={!amount || from === to}
           onClick={() => {
-            update((d) => ({ ...d, potMovements: [...d.potMovements, ...transferBetweenPots(from, to, Math.abs(amount!), today())] }))
+            update((d) => ({
+              ...d,
+              potMovements: [...d.potMovements, ...transferBetweenPots(from, to, Math.abs(amount!), today())],
+            }))
             onClose()
           }}
         >
@@ -275,7 +293,9 @@ function AllocateForm({ tx, onClose }: { tx: Transaction; onClose: () => void })
   const pots = data.pots.filter((p) => !p.archived)
   const deposit = tx.amount > 0
   const [split, setSplit] = useState<Map<string, number>>(() =>
-    deposit ? suggestAllocation(tx.amount, data) : new Map([[pots.find((p) => p.type === 'projet')?.id ?? UNALLOCATED_POT, tx.amount]]),
+    deposit
+      ? suggestAllocation(tx.amount, data)
+      : new Map([[pots.find((p) => p.type === 'projet')?.id ?? UNALLOCATED_POT, tx.amount]]),
   )
   const total = [...split.values()].reduce((s, v) => s + v, 0)
   const save = () => {

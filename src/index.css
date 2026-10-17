@@ -689,6 +689,10 @@ main.content {
   gap: 0.6rem;
 }
 .hbar {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
   display: grid;
   grid-template-columns: minmax(0, 7.5rem) 1fr auto;
   align-items: center;
@@ -771,4 +775,21 @@ main.content {
 .table.breakdown tr.total td {
   font-weight: 600;
   border-bottom: none;
+}
+.hbar:disabled {
+  cursor: default;
+}
+.hbar:not(:disabled):hover .hbar-label,
+button.linkish:hover {
+  text-decoration: underline;
+}
+.hbar:focus-visible,
+button.linkish:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.linkish {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
 }

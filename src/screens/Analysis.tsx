@@ -45,8 +45,8 @@ function Analyze() {
     <div className="stack">
       <div className="card stack">
         <p className="small muted" style={{ margin: 0 }}>
-          L'analyse compare tes dépenses à ton budget, à ton historique et au repère 50/30/20. Elle est calculée sur ton appareil :
-          aucune donnée n'est envoyée.
+          L'analyse compare tes dépenses à ton budget, à ton historique et au repère 50/30/20. Elle est calculée sur ton appareil
+          : aucune donnée n'est envoyée.
         </p>
         <button className="btn primary" onClick={() => setInsights(analyze(data))}>
           Analyser mes dépenses
@@ -80,11 +80,7 @@ function Review() {
           ← Précédente
         </button>
         <strong className="small">{periodLabel(period)}</strong>
-        <button
-          className="btn small"
-          disabled={isCurrent}
-          onClick={() => setPeriod(nextPeriod(period, data))}
-        >
+        <button className="btn small" disabled={isCurrent} onClick={() => setPeriod(nextPeriod(period, data))}>
           Suivante →
         </button>
       </div>
@@ -166,7 +162,13 @@ function Bars({ points }: { points: { label: string; value: number; title: strin
   const max = Math.max(1, ...points.map((p) => p.value))
   const w = 100 / points.length
   return (
-    <svg viewBox="0 0 100 60" style={{ width: '100%', height: 220 }} role="img" preserveAspectRatio="none" aria-label="Graphique en barres">
+    <svg
+      viewBox="0 0 100 60"
+      style={{ width: '100%', height: 220 }}
+      role="img"
+      preserveAspectRatio="none"
+      aria-label="Graphique en barres"
+    >
       {points.map((p, i) => {
         const h = (p.value / max) * 48
         return (
@@ -286,8 +288,20 @@ function NetWorth() {
       <p>
         <Money cents={last.current + last.savings} /> aujourd'hui, dont <Money cents={last.savings} /> d'épargne.
       </p>
-      <svg viewBox="0 0 100 52" style={{ width: '100%', height: 220 }} preserveAspectRatio="none" role="img" aria-label="Évolution du patrimoine">
-        <path d={path((p) => p.current + p.savings)} fill="none" stroke="var(--accent)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+      <svg
+        viewBox="0 0 100 52"
+        style={{ width: '100%', height: 220 }}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="Évolution du patrimoine"
+      >
+        <path
+          d={path((p) => p.current + p.savings)}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="0.8"
+          vectorEffect="non-scaling-stroke"
+        />
         <path d={path((p) => p.savings)} fill="none" stroke="var(--gold)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="row between small muted">

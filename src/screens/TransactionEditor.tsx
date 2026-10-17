@@ -26,7 +26,12 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
   const [remember, setRemember] = useState<Remember>(tx.source === 'import' && !tx.ruleId ? 'libelle-montant' : 'non')
   const [splitting, setSplitting] = useState(!!tx.splits?.length)
   const [splits, setSplitRows] = useState<Split[]>(
-    tx.splits?.length ? tx.splits : [{ categoryId: tx.categoryId ?? '', amount: tx.amount }, { categoryId: '', amount: 0 }],
+    tx.splits?.length
+      ? tx.splits
+      : [
+          { categoryId: tx.categoryId ?? '', amount: tx.amount },
+          { categoryId: '', amount: 0 },
+        ],
   )
   const [tags, setTags] = useState(tx.tags)
   const [note, setNote] = useState(tx.note ?? '')
@@ -55,12 +60,16 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
     try {
       update((d) => {
         let n: AppData = d
-        if (manual && amount !== null)
-          n = updateDetails(n, tx.id, { label: label.trim() || tx.label, date, amount })
+        if (manual && amount !== null) n = updateDetails(n, tx.id, { label: label.trim() || tx.label, date, amount })
         n = updateDetails(n, tx.id, { tags, note: note.trim() || undefined })
         if (transferWith) n = markTransfer(n, tx.id, transferWith)
         else if (tx.amount > 0 && reimburses !== tx.reimbursesId) n = linkReimbursement(n, tx.id, reimburses)
-        if (splitting) n = setSplits(n, tx.id, splits.filter((s) => s.categoryId && s.amount !== 0))
+        if (splitting)
+          n = setSplits(
+            n,
+            tx.id,
+            splits.filter((s) => s.categoryId && s.amount !== 0),
+          )
         else if (!tx.transferId && !transferWith) n = categorize(n, tx.id, categoryId, remember)
         return n
       })
@@ -150,7 +159,11 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
                       Mémoriser pour les prochains imports
                     </legend>
                     <label className="inline">
-                      <input type="radio" checked={remember === 'libelle-montant'} onChange={() => setRemember('libelle-montant')} />
+                      <input
+                        type="radio"
+                        checked={remember === 'libelle-montant'}
+                        onChange={() => setRemember('libelle-montant')}
+                      />
                       Ce libellé avec ce montant ({formatMoney(Math.abs(tx.amount))})
                     </label>
                     <label className="inline">
@@ -185,7 +198,9 @@ export function TransactionEditor({ tx, onClose }: { tx: Transaction; onClose: (
                         key={`${i}-${splits.length}`}
                         value={Math.abs(s.amount)}
                         onChange={(v) =>
-                          setSplitRows(splits.map((x, j) => (j === i ? { ...x, amount: Math.sign(tx.amount) * Math.abs(v ?? 0) } : x)))
+                          setSplitRows(
+                            splits.map((x, j) => (j === i ? { ...x, amount: Math.sign(tx.amount) * Math.abs(v ?? 0) } : x)),
+                          )
                         }
                       />
                     </div>

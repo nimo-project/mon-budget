@@ -178,10 +178,7 @@ function AllTransactions() {
         <button className="btn small" onClick={() => setShowFilters(!showFilters)}>
           Filtres
         </button>
-        <button
-          className="btn small"
-          onClick={() => download(`operations-${today()}.csv`, transactionsCsv(data, filtered))}
-        >
+        <button className="btn small" onClick={() => download(`operations-${today()}.csv`, transactionsCsv(data, filtered))}>
           Exporter en CSV
         </button>
       </div>

@@ -10,7 +10,18 @@ import type { RolloverAction } from '../domain/types'
 import { daysBetween, formatDate, formatMoney, today } from '../domain/util'
 import { useStore } from '../state/store'
 import { CategoryBars, HistoryBars, Legend, PaceChart } from '../ui/charts'
-import { plannedSpending, spendingBreakdown, spendingByCategory, spendingHistory, spendingPace } from '../domain/charts'
+import {
+  periodSpendingRows,
+  plannedSpending,
+  spendingBreakdown,
+  spendingByCategory,
+  spendingGroupOf,
+  spendingHistory,
+  spendingPace,
+  spendingRootOf,
+  type SpendingGroup,
+} from '../domain/charts'
+import { TransactionsSheet } from './TransactionsSheet'
 import { Money, PageHead, ProgressBar } from '../ui/fields'
 import { EnvelopeDetail } from './EnvelopeDetail'
 
@@ -31,6 +42,16 @@ export function Dashboard() {
   const totalDays = daysBetween(period.start, period.end) + 1
   const timePct = Math.round((Math.min(totalDays, daysBetween(period.start, today()) + 1) / totalDays) * 100)
   const breakdown = spendingBreakdown(data, period)
+  const [detail, setDetail] = useState<{ title: string; keep: (categoryId: string) => boolean } | null>(null)
+  const showGroup = (group: SpendingGroup, title: string) => {
+    const groupOf = spendingGroupOf(data, period)
+    setDetail({ title, keep: (id) => groupOf(id) === group })
+  }
+  const showRoot = (root: string, title: string) => {
+    const rootOf = spendingRootOf(data)
+    const groupOf = spendingGroupOf(data, period)
+    setDetail({ title, keep: (id) => groupOf(id) !== null && rootOf(id) === root })
+  }
   // Épargne versée sur la période (le reste de « réel » hors dépenses).
   const savedSoFar = Math.max(0, fc.spentSoFar - spentSoFar)
   // Les frais fixes tombent souvent en début de période : le rythme se juge sur les budgets variables.
@@ -143,14 +164,28 @@ export function Dashboard() {
                 </tr>
               )}
               <tr>
-                <td>Hors budget</td>
+                <td>
+                  Hors budget{' '}
+                  {breakdown.spent.horsBudget > 0 && (
+                    <button className="linkish" onClick={() => showGroup('horsBudget', 'Hors budget')}>
+                      (voir)
+                    </button>
+                  )}
+                </td>
                 <td className="muted">–</td>
                 <td>
                   <Money cents={breakdown.spent.horsBudget} />
                 </td>
               </tr>
               <tr>
-                <td>À classer {breakdown.spent.aClasser > 0 && <Link to="/operations">(classer)</Link>}</td>
+                <td>
+                  À classer{' '}
+                  {breakdown.spent.aClasser > 0 && (
+                    <button className="linkish" onClick={() => showGroup('aClasser', 'À classer')}>
+                      (voir)
+                    </button>
+                  )}
+                </td>
                 <td className="muted">–</td>
                 <td>
                   <Money cents={breakdown.spent.aClasser} />
@@ -230,7 +265,7 @@ export function Dashboard() {
         <div className="card">
           <h2>Où va ton argent</h2>
           {byCategory.length ? (
-            <CategoryBars rows={byCategory} />
+            <CategoryBars rows={byCategory} onSelect={(r) => showRoot(r.categoryId, r.name)} />
           ) : (
             <p className="muted small">Aucune dépense sur cette période pour l'instant.</p>
           )}
@@ -260,6 +295,15 @@ export function Dashboard() {
           <EnvelopeList envelopes={summary.envelopes} period={period} />
         )}
       </div>
+
+      {detail && (
+        <TransactionsSheet
+          title={detail.title}
+          subtitle={`Période ${periodLabel(period)}`}
+          rows={periodSpendingRows(data, period, detail.keep)}
+          onClose={() => setDetail(null)}
+        />
+      )}
 
       <AccountsCard />
 

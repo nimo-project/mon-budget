@@ -135,14 +135,14 @@ export function PaceChart({ points }: { points: PacePoint[] }) {
 }
 
 /** Où va l'argent : une barre par grande catégorie, valeur et part du total affichées. */
-export function CategoryBars({ rows }: { rows: CategorySpend[] }) {
+export function CategoryBars({ rows, onSelect }: { rows: CategorySpend[]; onSelect: (row: CategorySpend) => void }) {
   const max = Math.max(...rows.map((r) => r.amount), 1)
   const total = rows.reduce((s, r) => s + r.amount, 0)
   return (
     <ul className="hbars">
       {rows.map((r) => (
         <li key={r.categoryId}>
-          <div className="hbar">
+          <button className="hbar" disabled={r.categoryId === 'autres'} onClick={() => onSelect(r)}>
             <span className="hbar-label">{r.name}</span>
             <span className="hbar-track">
               <span className="hbar-fill" style={{ width: `${Math.max(2, (r.amount / max) * 100)}%` }} />
@@ -150,7 +150,7 @@ export function CategoryBars({ rows }: { rows: CategorySpend[] }) {
             <span className="hbar-value">
               {formatMoney(r.amount)} <span className="muted">{Math.round((r.amount / total) * 100)} %</span>
             </span>
-          </div>
+          </button>
         </li>
       ))}
     </ul>

@@ -39,7 +39,7 @@ export function ImportScreen() {
     const result = parseStatement(file.name, await file.arrayBuffer())
     setParsed(result)
     setRows(result.mapping || !result.table ? result.rows : null)
-    if (!result.table && !result.rows.length) setError("Aucune opération trouvée dans ce fichier.")
+    if (!result.table && !result.rows.length) setError('Aucune opération trouvée dans ce fichier.')
     // Choix automatique du compte d'après la banque reconnue.
     if (result.bank) {
       const match = accounts.find((a) => a.bank === result.bank && a.kind === 'courant')
@@ -117,7 +117,11 @@ export function ImportScreen() {
       )}
 
       {parsed?.table && !rows && (
-        <ColumnMapper table={parsed.table} initial={parsed.mapping} onDone={(m) => setRows(applyMapping(parsed.table!, m).rows)} />
+        <ColumnMapper
+          table={parsed.table}
+          initial={parsed.mapping}
+          onDone={(m) => setRows(applyMapping(parsed.table!, m).rows)}
+        />
       )}
 
       {rows && !stats && (
@@ -206,7 +210,9 @@ function ColumnMapper({
   return (
     <div className="card stack">
       <h2>Indique les colonnes du fichier</h2>
-      <p className="muted small">Le format n'a pas été reconnu automatiquement. Choisis la ligne de titres et les colonnes utiles.</p>
+      <p className="muted small">
+        Le format n'a pas été reconnu automatiquement. Choisis la ligne de titres et les colonnes utiles.
+      </p>
       <div className="scroll-x">
         <table className="table">
           <tbody>
@@ -235,7 +241,11 @@ function ColumnMapper({
             checked={split}
             onChange={(e) => {
               setSplit(e.target.checked)
-              setM(e.target.checked ? { ...m, amount: undefined, debit: 0, credit: 0 } : { ...m, amount: 0, debit: undefined, credit: undefined })
+              setM(
+                e.target.checked
+                  ? { ...m, amount: undefined, debit: 0, credit: 0 }
+                  : { ...m, amount: 0, debit: undefined, credit: undefined },
+              )
             }}
           />
           Débit et crédit dans deux colonnes

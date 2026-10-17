@@ -36,8 +36,8 @@ export function Setup() {
         <div className="card stack">
           <h1>Ta clé de secours</h1>
           <p>
-            Elle permet de retrouver tes données si tu oublies ta phrase secrète. Elle ne sera plus jamais affichée.
-            Note-la sur papier ou dans ton gestionnaire de mots de passe.
+            Elle permet de retrouver tes données si tu oublies ta phrase secrète. Elle ne sera plus jamais affichée. Note-la sur
+            papier ou dans ton gestionnaire de mots de passe.
           </p>
           <div className="recovery-code">{code}</div>
           <button type="button" className="btn small" onClick={() => navigator.clipboard?.writeText(code)}>
@@ -62,8 +62,8 @@ export function Setup() {
       <form className="card stack" onSubmit={submit}>
         <h1>Bienvenue</h1>
         <p>
-          Tes données sont chiffrées sur cet appareil avec ta phrase secrète. Personne d'autre ne peut les lire, pas même
-          le serveur de synchro.
+          Tes données sont chiffrées sur cet appareil avec ta phrase secrète. Personne d'autre ne peut les lire, pas même le
+          serveur de synchro.
         </p>
         <div className="card warn stack">
           <p className="small">
@@ -80,12 +80,7 @@ export function Setup() {
         </label>
         <label>
           Confirmer la phrase secrète
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
+          <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </label>
         {error && <p className="error">{error}</p>}
         <button className="btn primary" disabled={busy}>
@@ -146,21 +141,11 @@ export function Unlock() {
             </label>
             <label>
               Nouvelle phrase secrète
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
-              />
+              <input type="password" autoComplete="new-password" value={newPass} onChange={(e) => setNewPass(e.target.value)} />
             </label>
             <label>
               Confirmer la nouvelle phrase secrète
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
+              <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </label>
           </>
         )}
@@ -216,7 +201,9 @@ function RestoreFromSync({ onBack }: { onBack: () => void }) {
         <h1>Récupérer mes données</h1>
         {!DEFAULT_SYNC && (
           <>
-            <p className="small muted">Les informations de synchro se trouvent dans Réglages › Sécurité sur ton autre appareil.</p>
+            <p className="small muted">
+              Les informations de synchro se trouvent dans Réglages › Sécurité sur ton autre appareil.
+            </p>
             <label>
               Adresse du projet
               <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" />

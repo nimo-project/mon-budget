@@ -4,7 +4,7 @@ import { budgetFor, monthlyAnnualProvision, topLines } from './budget'
 import { categoryMap, rootOf, UNCATEGORIZED } from './categories'
 import { lastPeriods, type Period } from './periods'
 import { activeTransactions, allocations, txIndex } from './transactions'
-import type { AppData } from './types'
+import type { AppData, Transaction } from './types'
 import { addDays, daysBetween, sum, today } from './util'
 
 function isSpending(data: AppData, map = categoryMap(data.categories)) {
@@ -117,30 +117,60 @@ export interface SpendingBreakdown {
   spent: { fixe: number; variable: number; horsBudget: number; aClasser: number }
 }
 
-/** D'où viennent le prévu et le dépensé de la période (pour expliquer le « reste à dépenser »). */
-export function spendingBreakdown(data: AppData, period: Period): SpendingBreakdown {
+export type SpendingGroup = 'fixe' | 'variable' | 'horsBudget' | 'aClasser'
+
+/** Classe une catégorie de dépense selon le budget de la période : frais fixe, budget variable, hors budget ou à classer. */
+export function spendingGroupOf(data: AppData, period: Period): (categoryId: string) => SpendingGroup | null {
   const map = categoryMap(data.categories)
   const spending = isSpending(data, map)
   const lines = topLines(data, budgetFor(data, period))
-  // Ligne de budget qui couvre une catégorie : la sienne ou celle d'un parent.
-  const lineOf = (id: string) => {
-    let c: string | undefined = id
+  return (categoryId) => {
+    if (!spending(categoryId)) return null
+    if (categoryId === UNCATEGORIZED) return 'aClasser'
+    // Ligne de budget qui couvre la catégorie : la sienne ou celle d'un parent.
+    let c: string | undefined = categoryId
     while (c) {
       const line = lines.find((l) => l.categoryId === c)
-      if (line) return line
+      if (line) return line.kind === 'fixe' || line.kind === 'variable' ? line.kind : 'horsBudget'
       c = map.get(c)?.parentId
     }
-    return undefined
+    return 'horsBudget'
   }
+}
+
+export interface SpendingRow {
+  tx: Transaction
+  /** Part de l'opération retenue, en centimes positifs pour une dépense. */
+  amount: number
+}
+
+/** Opérations de la période dont une part tombe dans les catégories retenues, de la plus récente à la plus ancienne. */
+export function periodSpendingRows(data: AppData, period: Period, keep: (categoryId: string) => boolean): SpendingRow[] {
+  const byId = txIndex(data)
+  return activeTransactions(data)
+    .filter((t) => t.date >= period.start && t.date <= period.end)
+    .map((tx) => ({ tx, amount: -sum(allocations(tx, data, byId).filter((a) => keep(a.categoryId)), (a) => a.amount) }))
+    .filter((r) => r.amount !== 0)
+    .sort((a, b) => b.tx.date.localeCompare(a.tx.date))
+}
+
+/** Racine d'une catégorie pour « Où va ton argent » (« À classer » reste à part). */
+export function spendingRootOf(data: AppData): (categoryId: string) => string {
+  const map = categoryMap(data.categories)
+  return (id) => (id === UNCATEGORIZED ? UNCATEGORIZED : rootOf(id, map))
+}
+
+/** D'où viennent le prévu et le dépensé de la période (pour expliquer le « reste à dépenser »). */
+export function spendingBreakdown(data: AppData, period: Period): SpendingBreakdown {
+  const lines = topLines(data, budgetFor(data, period))
+  const groupOf = spendingGroupOf(data, period)
   const spent = { fixe: 0, variable: 0, horsBudget: 0, aClasser: 0 }
   const byId = txIndex(data)
   for (const t of activeTransactions(data)) {
     if (t.date < period.start || t.date > period.end) continue
     for (const a of allocations(t, data, byId)) {
-      if (!spending(a.categoryId)) continue
-      const kind = a.categoryId === UNCATEGORIZED ? 'aClasser' : (lineOf(a.categoryId)?.kind ?? 'horsBudget')
-      const key = kind === 'fixe' || kind === 'variable' || kind === 'aClasser' ? kind : 'horsBudget'
-      spent[key] -= a.amount
+      const group = groupOf(a.categoryId)
+      if (group) spent[group] -= a.amount
     }
   }
   return {

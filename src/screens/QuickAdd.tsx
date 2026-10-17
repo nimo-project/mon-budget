@@ -122,7 +122,9 @@ export function QuickAdd({ onClose }: { onClose: () => void }) {
           Note
           <input value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-        <div className="small muted" style={{ marginBottom: '0.25rem' }}>Étiquettes</div>
+        <div className="small muted" style={{ marginBottom: '0.25rem' }}>
+          Étiquettes
+        </div>
         <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
         {error && <p className="error">{error}</p>}
         <div className="row end" style={{ marginTop: '1rem' }}>

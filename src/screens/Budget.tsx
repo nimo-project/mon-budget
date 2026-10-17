@@ -19,7 +19,20 @@ import { CategorySelect, Money, MoneyInput, PageHead } from '../ui/fields'
 import { Sheet } from '../ui/Sheet'
 import { EnvelopeList } from './Dashboard'
 
-const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const MONTHS = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+]
 
 export function BudgetScreen() {
   const [tab, setTab] = useState<'suivi' | 'definir' | 'annuel'>('suivi')
@@ -167,8 +180,8 @@ function BaseBudget() {
           </p>
         )}
         <p className="small muted" style={{ marginTop: '0.5rem' }}>
-          Le budget de base s'applique à la période en cours et aux suivantes. Les périodes passées gardent le budget qui était prévu
-          pour elles. Pour une période particulière (voyage…), utilise « Ajuster cette période » dans Prévu / réel.
+          Le budget de base s'applique à la période en cours et aux suivantes. Les périodes passées gardent le budget qui était
+          prévu pour elles. Pour une période particulière (voyage…), utilise « Ajuster cette période » dans Prévu / réel.
         </p>
       </div>
       <BudgetLinesEditor lines={data.budget} onChange={(change) => update((d) => updateBaseBudget(d, change))} />
@@ -194,7 +207,10 @@ function BudgetLinesEditor({
 
   const add = () => {
     if (!categoryId || !amount) return
-    onChange((ls) => [...ls.filter((b) => b.categoryId !== categoryId), { id: uid(), categoryId, kind, amount: Math.abs(amount) }])
+    onChange((ls) => [
+      ...ls.filter((b) => b.categoryId !== categoryId),
+      { id: uid(), categoryId, kind, amount: Math.abs(amount) },
+    ])
     setCategoryId(undefined)
     setAmount(null)
     setFormKey(formKey + 1)
@@ -209,7 +225,12 @@ function BudgetLinesEditor({
           <div className="card" key={k}>
             <div className="row between">
               <h2 style={{ margin: 0 }}>{BUDGET_KIND_LABEL[k]}</h2>
-              <Money cents={sum(group.filter((l) => tops.includes(l)), (l) => l.amount)} />
+              <Money
+                cents={sum(
+                  group.filter((l) => tops.includes(l)),
+                  (l) => l.amount,
+                )}
+              />
             </div>
             {group.length === 0 && <p className="muted small">Aucune ligne.</p>}
             <ul className="list">
@@ -270,8 +291,8 @@ function BudgetLinesEditor({
           </label>
         </div>
         <p className="small muted" style={{ margin: 0 }}>
-          Tu peux fixer un budget sur une catégorie (ex. Plaisir) et aussi sur une sous-catégorie (ex. Beauté) : la sous-catégorie est
-          alors suivie à part, sans être comptée deux fois.
+          Tu peux fixer un budget sur une catégorie (ex. Plaisir) et aussi sur une sous-catégorie (ex. Beauté) : la sous-catégorie
+          est alors suivie à part, sans être comptée deux fois.
         </p>
         <div className="row end">
           <button className="btn primary" disabled={!categoryId || !amount} onClick={add}>
@@ -297,7 +318,10 @@ function AnnualExpenses() {
     if (!name.trim() || !amount) return
     update((d) => ({
       ...d,
-      annualExpenses: [...d.annualExpenses, { id: uid(), name: name.trim(), amount: Math.abs(amount), dueMonth: month, categoryId }],
+      annualExpenses: [
+        ...d.annualExpenses,
+        { id: uid(), name: name.trim(), amount: Math.abs(amount), dueMonth: month, categoryId },
+      ],
     }))
     setName('')
     setAmount(null)
@@ -372,7 +396,13 @@ function AnnualExpenses() {
           </label>
           <label>
             Catégorie (facultatif)
-            <CategorySelect categories={data.categories} kinds={['depense']} value={categoryId} onChange={setCategoryId} allowEmpty="Aucune" />
+            <CategorySelect
+              categories={data.categories}
+              kinds={['depense']}
+              value={categoryId}
+              onChange={setCategoryId}
+              allowEmpty="Aucune"
+            />
           </label>
         </div>
         <div className="row end">
