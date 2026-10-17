@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { decideRollover } from '../domain/actions'
 import { pendingRollovers, summarize, type EnvelopeStatus } from '../domain/budget'
 import { forecast, upcomingDebits } from '../domain/insights'
-import { currentPeriod, periodLabel, previousPeriod } from '../domain/periods'
+import { currentPeriod, periodLabel, previousPeriod, type Period } from '../domain/periods'
 import { UNALLOCATED_POT } from '../domain/savings'
 import { accountBalance, allocatedTo, spentOn } from '../domain/transactions'
 import type { RolloverAction } from '../domain/types'
 import { daysBetween, formatDate, formatMoney, today } from '../domain/util'
 import { useStore } from '../state/store'
 import { Money, PageHead, ProgressBar } from '../ui/fields'
+import { EnvelopeDetail } from './EnvelopeDetail'
 
 export function Dashboard() {
   const { data } = useStore()
@@ -51,8 +52,8 @@ export function Dashboard() {
             <Money cents={fc.projectedLeft} />
           </div>
           <div className="small muted">
-            Revenus {formatMoney(fc.income)} − dépensé {formatMoney(fc.spentSoFar)} − prélèvements à venir {formatMoney(fc.upcoming)}{' '}
-            − dépenses courantes estimées {formatMoney(fc.variablePace)}
+            Revenus {formatMoney(fc.income)} − dépensé {formatMoney(fc.spentSoFar)} − prélèvements à venir{' '}
+            {formatMoney(fc.upcoming)} − dépenses courantes estimées {formatMoney(fc.variablePace)}
           </div>
         </div>
         <div className="card">
@@ -96,7 +97,7 @@ export function Dashboard() {
             Pas encore de budget. <Link to="/budget">Définis tes frais fixes, enveloppes et épargne</Link>.
           </p>
         ) : (
-          <EnvelopeList envelopes={summary.envelopes} />
+          <EnvelopeList envelopes={summary.envelopes} period={period} />
         )}
       </div>
 
@@ -121,29 +122,35 @@ export function Dashboard() {
   )
 }
 
-export function EnvelopeList({ envelopes }: { envelopes: EnvelopeStatus[] }) {
+export function EnvelopeList({ envelopes, period }: { envelopes: EnvelopeStatus[]; period: Period }) {
+  const [open, setOpen] = useState<EnvelopeStatus | null>(null)
   const order = ['fixe', 'variable', 'epargne', 'investissement']
   const sorted = [...envelopes].sort((a, b) => order.indexOf(a.line.kind) - order.indexOf(b.line.kind))
   return (
-    <ul className="list">
-      {sorted.map((e) => (
-        <li key={e.line.id} style={{ paddingLeft: e.isChild ? '1rem' : 0 }}>
-          <div className="row between">
-            <span>
-              {e.name}
-              {e.carried > 0 && <span className="badge accent"> +{formatMoney(e.carried)} reporté</span>}
-            </span>
-            <span className="small">
-              <Money cents={e.actual} className={e.state === 'depasse' ? 'over' : ''} /> / <Money cents={e.available} />
-            </span>
-          </div>
-          <ProgressBar pct={e.pct} state={e.state} />
-          <div className="small muted" style={{ marginTop: 2 }}>
-            {e.remaining >= 0 ? `Reste ${formatMoney(e.remaining)}` : `Dépassé de ${formatMoney(-e.remaining)}`}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="list">
+        {sorted.map((e) => (
+          <li key={e.line.id} style={{ paddingLeft: e.isChild ? '1rem' : 0 }}>
+            <button className="envelope" onClick={() => setOpen(e)} aria-label={`Voir les opérations : ${e.name}`}>
+              <div className="row between">
+                <span>
+                  {e.name}
+                  {e.carried > 0 && <span className="badge accent"> +{formatMoney(e.carried)} reporté</span>}
+                </span>
+                <span className="small">
+                  <Money cents={e.actual} className={e.state === 'depasse' ? 'over' : ''} /> / <Money cents={e.available} />
+                </span>
+              </div>
+              <ProgressBar pct={e.pct} state={e.state} />
+              <div className="small muted" style={{ marginTop: 2 }}>
+                {e.remaining >= 0 ? `Reste ${formatMoney(e.remaining)}` : `Dépassé de ${formatMoney(-e.remaining)}`}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open && <EnvelopeDetail envelope={open} period={period} onClose={() => setOpen(null)} />}
+    </>
   )
 }
 
@@ -157,7 +164,16 @@ function RolloverDecisions() {
   const [potFor, setPotFor] = useState<Record<string, string>>({})
 
   const decide = (categoryId: string, amount: number, action: RolloverAction) =>
-    update((d) => decideRollover(d, prev.start, categoryId, amount, action, action === 'epargne' ? potFor[categoryId] ?? pots[0]?.id : undefined))
+    update((d) =>
+      decideRollover(
+        d,
+        prev.start,
+        categoryId,
+        amount,
+        action,
+        action === 'epargne' ? (potFor[categoryId] ?? pots[0]?.id) : undefined,
+      ),
+    )
 
   return (
     <div className="card highlight stack">

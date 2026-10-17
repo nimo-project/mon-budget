@@ -69,7 +69,7 @@ function Tracking() {
         </div>
       </div>
       <div className="card">
-        {summary.envelopes.length ? <EnvelopeList envelopes={summary.envelopes} /> : <p className="muted">Aucune ligne de budget.</p>}
+        {summary.envelopes.length ? <EnvelopeList envelopes={summary.envelopes} period={period} /> : <p className="muted">Aucune ligne de budget.</p>}
       </div>
     </div>
   )

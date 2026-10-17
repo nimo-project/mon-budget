@@ -308,6 +308,20 @@ label.inline {
 .list > li:last-child {
   border-bottom: none;
 }
+.list button.envelope {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.list button.envelope:hover .row > span:first-child {
+  text-decoration: underline;
+}
+.list button.envelope:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .list button.item {
   all: unset;
   display: flex;
@@ -378,6 +392,8 @@ table.table {
   margin-left: auto;
 }
 main.content {
+  /* min-width: 0 : sans ça, la colonne de grille s'élargit au contenu (onglets) et la page déborde sur mobile. */
+  min-width: 0;
   padding: 1.5rem 1.5rem 6rem;
   max-width: 1000px;
   width: 100%;
