@@ -169,6 +169,26 @@ export function SyncSettings() {
           {syncState.kind === "error" && (
             <p className="error">Synchro impossible : {syncState.message}</p>
           )}
+          {syncState.kind === "foreign" && (
+            <div className="card warn stack">
+              <p>
+                Le compte de synchro contient des données créées sur un autre appareil, avec une autre phrase secrète. Rien n'a
+                été écrasé. Quelles données veux-tu garder ?
+              </p>
+              <p className="small muted">
+                Si tu choisis l'autre appareil, les données de cet appareil-ci seront remplacées et l'app te demandera la phrase
+                secrète de l'autre appareil.
+              </p>
+              <div className="row">
+                <button className="btn small primary" onClick={() => resolveConflict("remote")}>
+                  Celles de l'autre appareil
+                </button>
+                <button className="btn small" onClick={() => resolveConflict("local")}>
+                  Celles de cet appareil
+                </button>
+              </div>
+            </div>
+          )}
           {syncState.kind === "conflict" && (
             <div className="card warn stack">
               <p>

@@ -65,6 +65,15 @@ export function Setup() {
           Tes données sont chiffrées sur cet appareil avec ta phrase secrète. Personne d'autre ne peut les lire, pas même
           le serveur de synchro.
         </p>
+        <div className="card warn stack">
+          <p className="small">
+            Tu utilises déjà l'app sur un autre appareil ? Ne crée pas de nouvel espace : récupère tes données.
+          </p>
+          <button type="button" className="btn" onClick={() => setFromSync(true)}>
+            Récupérer mes données
+          </button>
+        </div>
+        <h2>Première utilisation</h2>
         <label>
           Phrase secrète
           <input type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} />
@@ -81,9 +90,6 @@ export function Setup() {
         {error && <p className="error">{error}</p>}
         <button className="btn primary" disabled={busy}>
           {busy ? 'Chiffrement…' : 'Créer mon espace'}
-        </button>
-        <button type="button" className="btn ghost small" onClick={() => setFromSync(true)}>
-          J'utilise déjà l'app sur un autre appareil
         </button>
       </form>
     </div>

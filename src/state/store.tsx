@@ -21,6 +21,7 @@ export type SyncState =
   | { kind: 'ok'; at: string }
   | { kind: 'error'; message: string }
   | { kind: 'conflict'; remote: Vault }
+  | { kind: 'foreign'; remote: Vault }
 
 interface Store {
   status: Status
@@ -95,7 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await storeVault(result.vault)
         showData({ ...emptyData(), ...remoteData })
       }
-      if (result.kind === 'conflict') setSyncState({ kind: 'conflict', remote: result.remote })
+      if (result.kind === 'conflict' || result.kind === 'foreign') setSyncState({ kind: result.kind, remote: result.remote })
       else setSyncState({ kind: 'ok', at: new Date().toISOString() })
     } catch (e) {
       setSyncState({ kind: 'error', message: (e as Error).message })
@@ -178,12 +179,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const adoptVault = async (vault: Vault) => {
     acceptRemote(vault)
     await storeVault(vault)
+    keyRef.current = null
+    showData(emptyData())
+    setSyncState({ kind: 'ok', at: new Date().toISOString() })
     setStatus('locked')
   }
 
   const resolveConflict = async (keep: 'local' | 'remote') => {
-    if (syncState.kind !== 'conflict' || !keyRef.current) return
+    if ((syncState.kind !== 'conflict' && syncState.kind !== 'foreign') || !keyRef.current) return
     const remote = syncState.remote
+    if (keep === 'remote' && syncState.kind === 'foreign') {
+      // Coffre d'un autre appareil : on l'installe ici, il se déverrouille avec sa propre phrase secrète.
+      await adoptVault(remote)
+      return
+    }
     if (keep === 'remote') {
       const remoteData = await decryptJson<AppData>(keyRef.current, remote.payload)
       acceptRemote(remote)

@@ -1,7 +1,7 @@
 // Synchro entre appareils via Supabase. Seul le coffre chiffré est envoyé :
 // le serveur ne voit jamais les données en clair ni la phrase secrète.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Vault } from '../crypto/vault'
+import { sameVault, type Vault } from '../crypto/vault'
 
 export interface SyncConfig {
   url: string
@@ -107,6 +107,8 @@ export type SyncResult =
   | { kind: 'pulled'; vault: Vault }
   | { kind: 'up-to-date' }
   | { kind: 'conflict'; remote: Vault }
+  /** Le serveur contient un autre coffre (créé sur un autre appareil) : rien n'est écrasé. */
+  | { kind: 'foreign'; remote: Vault }
 
 /**
  * Compare le coffre local et celui du serveur.
@@ -120,6 +122,7 @@ export async function sync(local: Vault): Promise<SyncResult> {
   const remote = await fetchRemote()
   const base = baseRevision()
   const remoteRev = remote?.revision ?? 0
+  if (remote && !sameVault(remote, local)) return { kind: 'foreign', remote }
   if (remote && remoteRev === local.revision) {
     setBaseRevision(remoteRev)
     return { kind: 'up-to-date' }

@@ -5,6 +5,7 @@ import {
   decryptJson,
   formatRecoveryCode,
   parseRecoveryCode,
+  sameVault,
   unlockWithPassphrase,
   unlockWithRecovery,
   WrongSecretError,
@@ -32,6 +33,14 @@ describe('coffre chiffré', () => {
     await expect(unlockWithPassphrase(next, 'ancienne')).rejects.toBeInstanceOf(WrongSecretError)
     expect(await decryptJson(await unlockWithPassphrase(next, 'nouvelle'), next.payload)).toEqual({ a: 1 })
     expect(await decryptJson(await unlockWithRecovery(next, recoveryCode), next.payload)).toEqual({ a: 1 })
+  })
+
+  it('reconnaît un même coffre après changement de phrase, pas un coffre créé ailleurs', async () => {
+    const a = await createVault('phrase un', { x: 1 })
+    const b = await createVault('phrase un', { x: 1 })
+    const changed = await changePassphrase(a.vault, a.key, 'phrase deux')
+    expect(sameVault(a.vault, changed)).toBe(true)
+    expect(sameVault(a.vault, b.vault)).toBe(false)
   })
 
   it('encode et relit la clé de secours', () => {

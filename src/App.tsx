@@ -42,7 +42,7 @@ function MorePage() {
 }
 
 function Shell() {
-  const { data, lock } = useStore()
+  const { data, lock, syncState } = useStore()
   const [adding, setAdding] = useState(() => new URLSearchParams(location.search).has('ajout'))
   const toReview = data.transactions.filter((t) => t.toReview).length
 
@@ -74,6 +74,12 @@ function Shell() {
           <div className="card warn small" style={{ marginBottom: '1rem' }}>
             Version d'essai : tes données restent chiffrées dans ce navigateur. La synchro entre appareils et les téléchargements
             (export CSV, sauvegarde) arriveront avec la version installée.
+          </div>
+        )}
+        {(syncState.kind === 'foreign' || syncState.kind === 'conflict' || syncState.kind === 'error') && (
+          <div className="card warn small" style={{ marginBottom: '1rem' }}>
+            {syncState.kind === 'error' ? 'La synchro a échoué.' : 'La synchro a besoin que tu choisisses quelles données garder.'}{' '}
+            <Link to="/reglages">Voir dans Réglages</Link>
           </div>
         )}
         <Routes>

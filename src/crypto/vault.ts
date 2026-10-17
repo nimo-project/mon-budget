@@ -25,6 +25,14 @@ export interface Vault extends VaultHeader {
   revision: number
 }
 
+/**
+ * Deux coffres sont « le même » s'ils partagent la même clé de données : l'enveloppe de la clé
+ * de secours ne change jamais (contrairement à celle de la phrase secrète).
+ */
+export function sameVault(a: VaultHeader, b: VaultHeader): boolean {
+  return a.recoveryWrap.iv === b.recoveryWrap.iv && a.recoveryWrap.data === b.recoveryWrap.data
+}
+
 const ITERATIONS = 600_000
 const enc = new TextEncoder()
 const dec = new TextDecoder()
