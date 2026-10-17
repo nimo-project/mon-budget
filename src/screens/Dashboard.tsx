@@ -10,7 +10,7 @@ import type { RolloverAction } from '../domain/types'
 import { daysBetween, formatDate, formatMoney, today } from '../domain/util'
 import { useStore } from '../state/store'
 import { CategoryBars, HistoryBars, Legend, PaceChart } from '../ui/charts'
-import { plannedSpending, spendingByCategory, spendingHistory, spendingPace } from '../domain/charts'
+import { plannedSpending, spendingBreakdown, spendingByCategory, spendingHistory, spendingPace } from '../domain/charts'
 import { Money, PageHead, ProgressBar } from '../ui/fields'
 import { EnvelopeDetail } from './EnvelopeDetail'
 
@@ -30,7 +30,11 @@ export function Dashboard() {
   const spentSoFar = pace.reduce((v, p) => p.actual ?? v, 0)
   const totalDays = daysBetween(period.start, period.end) + 1
   const timePct = Math.round((Math.min(totalDays, daysBetween(period.start, today()) + 1) / totalDays) * 100)
-  const spentPct = plannedSpend > 0 ? Math.round((spentSoFar / plannedSpend) * 100) : 0
+  const breakdown = spendingBreakdown(data, period)
+  // Épargne versée sur la période (le reste de « réel » hors dépenses).
+  const savedSoFar = Math.max(0, fc.spentSoFar - spentSoFar)
+  // Les frais fixes tombent souvent en début de période : le rythme se juge sur les budgets variables.
+  const spentPct = breakdown.planned.variable > 0 ? Math.round((breakdown.spent.variable / breakdown.planned.variable) * 100) : 0
 
   if (!data.accounts.length) return <Onboarding />
 
@@ -68,8 +72,11 @@ export function Dashboard() {
           </div>
           <div className="hero-side">
             <div className="muted small">Prévision le jour de ta paie</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700 }} className={fc.projectedLeft < 0 ? 'over' : ''}>
-              <Money cents={fc.projectedLeft} />
+            <div
+              style={{ fontSize: '1.25rem', fontWeight: 700 }}
+              className={fc.income - spentSoFar - savedSoFar - fc.upcoming - fc.variablePace < 0 ? 'over' : ''}
+            >
+              <Money cents={fc.income - spentSoFar - savedSoFar - fc.upcoming - fc.variablePace} />
             </div>
           </div>
         </div>
@@ -81,7 +88,7 @@ export function Dashboard() {
           <span>{timePct} %</span>
         </div>
         <div className="meter">
-          <span className="muted">Budget dépensé</span>
+          <span className="muted">Budgets variables</span>
           <span className="meter-track">
             <span
               className={`meter-fill${spentPct > timePct + 5 ? ' over' : ''}`}
@@ -91,17 +98,126 @@ export function Dashboard() {
           <span>{spentPct} %</span>
         </div>
         <p className="small muted" style={{ margin: 0 }}>
-          {plannedSpend === 0
-            ? 'Définis ton budget pour suivre ton rythme de dépenses.'
+          {breakdown.planned.variable === 0
+            ? 'Ajoute des budgets variables (courses, sorties…) pour suivre ton rythme de dépenses.'
             : spentPct > timePct + 5
-              ? 'Tu dépenses plus vite que prévu pour cette période.'
-              : 'Ton rythme de dépenses est dans les clous.'}
+              ? 'Tes budgets variables partent plus vite que le temps : ralentis un peu.'
+              : 'Tes budgets variables sont dans les clous.'}
         </p>
-        <details className="small muted">
-          <summary>Détail de la prévision</summary>
-          Revenus {formatMoney(fc.income)} − dépensé {formatMoney(fc.spentSoFar)} − prélèvements à venir{' '}
-          {formatMoney(fc.upcoming)} − dépenses courantes estimées {formatMoney(fc.variablePace)}
-          {summary.extra > 0 && <> · extra reporté {formatMoney(summary.extra)}</>}
+        <details className="small">
+          <summary className="muted">Comment c'est calculé</summary>
+          <table className="table breakdown">
+            <thead>
+              <tr>
+                <th>Reste à dépenser</th>
+                <th>Prévu</th>
+                <th>Dépensé</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Frais fixes</td>
+                <td>
+                  <Money cents={breakdown.planned.fixe} />
+                </td>
+                <td>
+                  <Money cents={breakdown.spent.fixe} />
+                </td>
+              </tr>
+              <tr>
+                <td>Budgets variables</td>
+                <td>
+                  <Money cents={breakdown.planned.variable} />
+                </td>
+                <td>
+                  <Money cents={breakdown.spent.variable} />
+                </td>
+              </tr>
+              {breakdown.planned.annual > 0 && (
+                <tr>
+                  <td>Provision dépenses annuelles</td>
+                  <td>
+                    <Money cents={breakdown.planned.annual} />
+                  </td>
+                  <td className="muted">–</td>
+                </tr>
+              )}
+              <tr>
+                <td>Hors budget</td>
+                <td className="muted">–</td>
+                <td>
+                  <Money cents={breakdown.spent.horsBudget} />
+                </td>
+              </tr>
+              <tr>
+                <td>À classer {breakdown.spent.aClasser > 0 && <Link to="/operations">(classer)</Link>}</td>
+                <td className="muted">–</td>
+                <td>
+                  <Money cents={breakdown.spent.aClasser} />
+                </td>
+              </tr>
+              <tr className="total">
+                <td>Total</td>
+                <td>
+                  <Money cents={plannedSpend} />
+                </td>
+                <td>
+                  <Money cents={spentSoFar} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="muted">
+            L'épargne et les virements entre tes comptes ne comptent pas comme des dépenses. Une dépense dont la catégorie n'a pas
+            de ligne de budget compte en « hors budget » : ajoute une ligne dans Budget si elle revient tous les mois.
+          </p>
+          <table className="table breakdown">
+            <thead>
+              <tr>
+                <th colSpan={2}>Prévision le jour de ta paie</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Revenus de la période</td>
+                <td>
+                  <Money cents={fc.income} />
+                </td>
+              </tr>
+              <tr>
+                <td>Dépenses déjà faites</td>
+                <td>
+                  <Money cents={-spentSoFar} />
+                </td>
+              </tr>
+              {savedSoFar > 0 && (
+                <tr>
+                  <td>Épargne et investissements versés</td>
+                  <td>
+                    <Money cents={-savedSoFar} />
+                  </td>
+                </tr>
+              )}
+              <tr>
+                <td>Prélèvements habituels encore à venir</td>
+                <td>
+                  <Money cents={-fc.upcoming} />
+                </td>
+              </tr>
+              <tr>
+                <td>Dépenses courantes d'ici la paie (au rythme de tes budgets variables)</td>
+                <td>
+                  <Money cents={-fc.variablePace} />
+                </td>
+              </tr>
+              <tr className="total">
+                <td>Il devrait te rester</td>
+                <td>
+                  <Money cents={fc.income - spentSoFar - savedSoFar - fc.upcoming - fc.variablePace} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </details>
       </div>
 

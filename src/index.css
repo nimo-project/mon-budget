@@ -760,3 +760,15 @@ main.content {
     text-align: left;
   }
 }
+.table.breakdown {
+  margin: 0.5rem 0;
+}
+.table.breakdown td:not(:first-child),
+.table.breakdown th:not(:first-child) {
+  text-align: right;
+  white-space: nowrap;
+}
+.table.breakdown tr.total td {
+  font-weight: 600;
+  border-bottom: none;
+}

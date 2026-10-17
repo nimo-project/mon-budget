@@ -111,3 +111,50 @@ export function spendingHistory(data: AppData, count = 6): PeriodSpend[] {
       planned: plannedSpending(data, period),
     }))
 }
+
+export interface SpendingBreakdown {
+  planned: { fixe: number; variable: number; annual: number }
+  spent: { fixe: number; variable: number; horsBudget: number; aClasser: number }
+}
+
+/** D'où viennent le prévu et le dépensé de la période (pour expliquer le « reste à dépenser »). */
+export function spendingBreakdown(data: AppData, period: Period): SpendingBreakdown {
+  const map = categoryMap(data.categories)
+  const spending = isSpending(data, map)
+  const lines = topLines(data, budgetFor(data, period))
+  // Ligne de budget qui couvre une catégorie : la sienne ou celle d'un parent.
+  const lineOf = (id: string) => {
+    let c: string | undefined = id
+    while (c) {
+      const line = lines.find((l) => l.categoryId === c)
+      if (line) return line
+      c = map.get(c)?.parentId
+    }
+    return undefined
+  }
+  const spent = { fixe: 0, variable: 0, horsBudget: 0, aClasser: 0 }
+  const byId = txIndex(data)
+  for (const t of activeTransactions(data)) {
+    if (t.date < period.start || t.date > period.end) continue
+    for (const a of allocations(t, data, byId)) {
+      if (!spending(a.categoryId)) continue
+      const kind = a.categoryId === UNCATEGORIZED ? 'aClasser' : (lineOf(a.categoryId)?.kind ?? 'horsBudget')
+      const key = kind === 'fixe' || kind === 'variable' || kind === 'aClasser' ? kind : 'horsBudget'
+      spent[key] -= a.amount
+    }
+  }
+  return {
+    planned: {
+      fixe: sum(
+        lines.filter((l) => l.kind === 'fixe'),
+        (l) => l.amount,
+      ),
+      variable: sum(
+        lines.filter((l) => l.kind === 'variable'),
+        (l) => l.amount,
+      ),
+      annual: monthlyAnnualProvision(data),
+    },
+    spent,
+  }
+}

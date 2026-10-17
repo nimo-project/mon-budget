@@ -84,7 +84,8 @@ export function forecast(data: AppData, summary = summarize(data, currentPeriod(
   const daysLeft = Math.max(0, total - elapsed)
   const upcoming = sum(upcomingDebits(data, period), (r) => r.amount)
   const variable = summary.envelopes.filter((e) => e.line.kind === 'variable' && !e.isChild)
-  const variableSpent = sum(variable, (e) => e.actual) + summary.unbudgeted
+  // Rythme des enveloppes seulement : une grosse dépense ponctuelle hors budget ne doit pas gonfler l'estimation.
+  const variableSpent = sum(variable, (e) => e.actual)
   const variableRemainingBudget = sum(variable, (e) => Math.max(0, e.available - e.actual))
   // Rythme actuel des dépenses variables, plafonné à ce qui reste dans les enveloppes s'il est plus bas.
   const pace = Math.round((variableSpent / elapsed) * daysLeft)
