@@ -125,10 +125,21 @@ function Tracking() {
             <div className="muted small">Réel</div>
             <Money cents={summary.actualOut} className={summary.actualOut > summary.plannedOut ? 'over' : ''} />
           </div>
-          <div>
-            <div className="muted small">Hors budget</div>
-            <Money cents={summary.unbudgeted} />
-          </div>
+          {offBudget.length > 0 ? (
+            <button
+              className="linkish"
+              style={{ textAlign: 'left' }}
+              onClick={() => document.getElementById('hors-budget')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <div className="muted small">Hors budget · voir le détail ↓</div>
+              <Money cents={summary.unbudgeted} />
+            </button>
+          ) : (
+            <div>
+              <div className="muted small">Hors budget</div>
+              <Money cents={summary.unbudgeted} />
+            </div>
+          )}
         </div>
       )}
       <div className="card">
@@ -139,7 +150,7 @@ function Tracking() {
         )}
       </div>
       {!isFuture && offBudget.length > 0 && (
-        <div className="card">
+        <div className="card" id="hors-budget">
           <div className="row between">
             <h2 style={{ margin: 0 }}>Hors budget</h2>
             <Money cents={summary.unbudgeted} />
