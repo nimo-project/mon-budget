@@ -22,6 +22,7 @@ import {
   type SpendingGroup,
 } from '../domain/charts'
 import { TransactionsSheet } from './TransactionsSheet'
+import { transferFlows } from '../domain/transfers'
 import { Money, PageHead, ProgressBar } from '../ui/fields'
 import { EnvelopeDetail } from './EnvelopeDetail'
 
@@ -42,10 +43,10 @@ export function Dashboard() {
   const totalDays = daysBetween(period.start, period.end) + 1
   const timePct = Math.round((Math.min(totalDays, daysBetween(period.start, today()) + 1) / totalDays) * 100)
   const breakdown = spendingBreakdown(data, period)
-  const [detail, setDetail] = useState<{ title: string; keep: (categoryId: string) => boolean } | null>(null)
+  const [detail, setDetail] = useState<{ title: string; keep: (categoryId: string) => boolean; grouped?: boolean } | null>(null)
   const showGroup = (group: SpendingGroup, title: string) => {
     const groupOf = spendingGroupOf(data, period)
-    setDetail({ title, keep: (id) => groupOf(id) === group })
+    setDetail({ title, keep: (id) => groupOf(id) === group, grouped: group === 'horsBudget' })
   }
   const showRoot = (root: string, title: string) => {
     const rootOf = spendingRootOf(data)
@@ -315,6 +316,7 @@ export function Dashboard() {
           title={detail.title}
           subtitle={`Période ${periodLabel(period)}`}
           rows={periodSpendingRows(data, period, detail.keep)}
+          grouped={detail.grouped}
           onClose={() => setDetail(null)}
         />
       )}
@@ -445,6 +447,7 @@ function AccountsCard() {
   const { data } = useStore()
   const period = currentPeriod(data)
   const accounts = data.accounts.filter((a) => !a.archived)
+  const flows = transferFlows(data, period.start, period.end)
   return (
     <div className="card">
       <h2>Comptes</h2>
@@ -469,6 +472,27 @@ function AccountsCard() {
           )
         })}
       </ul>
+      {flows.length > 0 && (
+        <>
+          <h3 className="small muted" style={{ margin: '1rem 0 0.25rem' }}>
+            Virements entre tes comptes sur la période
+          </h3>
+          <ul className="list">
+            {flows.map((f) => (
+              <li key={f.fromName + f.toName} className="row between">
+                <span>
+                  {f.fromName} <span aria-label="vers">→</span> {f.toName}
+                  {f.count > 1 && <span className="small muted"> · {f.count} virements</span>}
+                </span>
+                <Money cents={f.amount} />
+              </li>
+            ))}
+          </ul>
+          <Link to="/operations?onglet=virements" className="small">
+            Voir tous les virements
+          </Link>
+        </>
+      )}
     </div>
   )
 }

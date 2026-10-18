@@ -17,6 +17,8 @@ import { formatMoney, sum, today, uid } from '../domain/util'
 import { useStore } from '../state/store'
 import { CategorySelect, Money, MoneyInput, PageHead } from '../ui/fields'
 import { Sheet } from '../ui/Sheet'
+import { groupByCategory, periodSpendingRows } from '../domain/charts'
+import { TransactionsSheet } from './TransactionsSheet'
 import { EnvelopeList } from './Dashboard'
 
 const MONTHS = [
@@ -64,11 +66,14 @@ function Tracking() {
   const { data, update } = useStore()
   const [period, setPeriod] = useState<Period>(() => currentPeriod(data))
   const [editing, setEditing] = useState(false)
+  const [offBudgetOpen, setOffBudgetOpen] = useState<string | null>(null)
+  const map = categoryMap(data.categories)
   const current = currentPeriod(data)
   const summary = summarize(data, period)
   const isFuture = period.start > current.start
   const isPast = period.end < current.start
   const own = hasOwnBudget(data, period)
+  const offBudget = groupByCategory(data, period, 'horsBudget')
   let last = current
   for (let i = 0; i < PLAN_AHEAD; i++) last = nextPeriod(last, data)
   return (
@@ -133,6 +138,33 @@ function Tracking() {
           <p className="muted">Aucune ligne de budget.</p>
         )}
       </div>
+      {!isFuture && offBudget.length > 0 && (
+        <div className="card">
+          <div className="row between">
+            <h2 style={{ margin: 0 }}>Hors budget</h2>
+            <Money cents={summary.unbudgeted} />
+          </div>
+          <p className="small muted">Dépenses classées dans une catégorie qui n'a pas de ligne de budget.</p>
+          <ul className="list">
+            {offBudget.map((c) => (
+              <li key={c.categoryId}>
+                <button className="item" onClick={() => setOffBudgetOpen(c.categoryId)}>
+                  <span className="grow">{categoryLabel(c.categoryId, map)}</span>
+                  <Money cents={c.amount} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {offBudgetOpen && (
+        <TransactionsSheet
+          title={categoryLabel(offBudgetOpen, map)}
+          subtitle={`Hors budget · période ${periodLabel(period)}`}
+          rows={periodSpendingRows(data, period, (id) => id === offBudgetOpen)}
+          onClose={() => setOffBudgetOpen(null)}
+        />
+      )}
       {editing && (
         <Sheet title={`Budget ${periodLabel(period)}`} onClose={() => setEditing(false)}>
           <p className="small muted">

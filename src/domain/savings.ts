@@ -2,8 +2,8 @@
 // « Non réparti » reçoit la différence entre le solde et les cagnottes affectées.
 import { fixedCostsPerPeriod } from './budget'
 import { accountBalance, activeTransactions } from './transactions'
-import type { AppData, Pot, PotMovement } from './types'
-import { addMonths, daysBetween, sum, today, uid } from './util'
+import type { AppData, Pot, PotMovement, Transaction } from './types'
+import { addMonths, daysBetween, normalizeLabel, sum, today, uid } from './util'
 
 export const UNALLOCATED_POT = 'pot-non-reparti'
 
@@ -77,9 +77,15 @@ function order(p: Pot): number {
  * Proposition de répartition d'un versement : on remplit d'abord les cagnottes prioritaires
  * jusqu'à leur objectif (ou leur besoin du mois), le reste va dans « Non réparti ».
  */
-export function suggestAllocation(amount: number, data: AppData): Map<string, number> {
+export function suggestAllocation(amount: number, data: AppData, tx?: Transaction): Map<string, number> {
   const out = new Map<string, number>()
   let left = amount
+  // Versement déjà classé dans une catégorie d'épargne (Précaution, Provision impôts, un projet) : il va dans la cagnotte correspondante.
+  const linked = tx && potForTransaction(tx, data)
+  if (linked && amount > 0) {
+    out.set(linked.id, amount)
+    return out
+  }
   // Restes de budget que Nina a choisi d'épargner récemment : leur cagnotte passe en premier.
   const recent = data.rollovers.filter((r) => r.action === 'epargne' && r.potId && r.periodStart >= addMonths(today(), -2))
   for (const r of recent) {
@@ -141,4 +147,20 @@ export function investmentContributions(data: AppData, categoryId: string, from:
     ),
     (t) => t.amount,
   )
+}
+
+/**
+ * Cagnotte qui correspond à la catégorie d'un versement (ou de l'autre ligne du virement) :
+ * Épargne › Précaution → cagnotte de précaution, Épargne › Provision impôts → impôts,
+ * sinon une cagnotte qui porte le même nom que la catégorie (ex. « Voyage Japon »).
+ */
+export function potForTransaction(tx: Transaction, data: AppData): Pot | undefined {
+  const other = tx.transferId ? data.transactions.find((t) => t.transferId === tx.transferId && t.id !== tx.id) : undefined
+  const categoryId = tx.categoryId ?? other?.categoryId
+  if (!categoryId) return undefined
+  const pots = data.pots.filter((p) => !p.archived && p.id !== UNALLOCATED_POT)
+  if (categoryId === 'cat-epargne--precaution') return pots.find((p) => p.type === 'precaution')
+  if (categoryId === 'cat-epargne--provision-impots') return pots.find((p) => p.type === 'impots')
+  const name = data.categories.find((c) => c.id === categoryId)?.name
+  return name ? pots.find((p) => normalizeLabel(p.name) === normalizeLabel(name)) : undefined
 }

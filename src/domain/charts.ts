@@ -188,3 +188,25 @@ export function spendingBreakdown(data: AppData, period: Period): SpendingBreakd
     spent,
   }
 }
+
+export interface CategoryTotal {
+  categoryId: string
+  amount: number
+}
+
+/** Dépenses d'un groupe (ex. hors budget) par catégorie précise, de la plus grosse à la plus petite. */
+export function groupByCategory(data: AppData, period: Period, group: SpendingGroup): CategoryTotal[] {
+  const groupOf = spendingGroupOf(data, period)
+  const byId = txIndex(data)
+  const totals = new Map<string, number>()
+  for (const t of activeTransactions(data)) {
+    if (t.date < period.start || t.date > period.end) continue
+    for (const a of allocations(t, data, byId)) {
+      if (groupOf(a.categoryId) === group) totals.set(a.categoryId, (totals.get(a.categoryId) ?? 0) - a.amount)
+    }
+  }
+  return [...totals]
+    .filter(([, amount]) => amount !== 0)
+    .map(([categoryId, amount]) => ({ categoryId, amount }))
+    .sort((a, b) => b.amount - a.amount)
+}

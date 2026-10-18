@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { categorize, confirmReview, type Remember } from '../domain/actions'
 import { categoryLabel, categoryMap, subtree, UNCATEGORIZED } from '../domain/categories'
 import { download, transactionsCsv } from '../domain/export'
+import { transferPairs } from '../domain/transfers'
 import type { Transaction } from '../domain/types'
 import { formatDate, normalizeLabel, today } from '../domain/util'
 import { useStore } from '../state/store'
@@ -12,7 +13,10 @@ import { TransactionEditor } from './TransactionEditor'
 export function Transactions() {
   const { data } = useStore()
   const toReview = data.transactions.filter((t) => t.toReview && !t.matchedTxId)
-  const [tab, setTab] = useState<'review' | 'all'>(toReview.length ? 'review' : 'all')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<'review' | 'all' | 'virements'>(
+    params.get('onglet') === 'virements' ? 'virements' : toReview.length ? 'review' : 'all',
+  )
 
   return (
     <div>
@@ -28,8 +32,52 @@ export function Transactions() {
         <button role="tab" className={tab === 'all' ? 'active' : ''} onClick={() => setTab('all')}>
           Toutes
         </button>
+        <button role="tab" className={tab === 'virements' ? 'active' : ''} onClick={() => setTab('virements')}>
+          Virements
+        </button>
       </div>
-      {tab === 'review' ? <ReviewList items={toReview} /> : <AllTransactions />}
+      {tab === 'review' ? <ReviewList items={toReview} /> : tab === 'virements' ? <Transfers /> : <AllTransactions />}
+    </div>
+  )
+}
+
+/** Virements entre les comptes : chaque virement sur une ligne, compte de départ → compte d'arrivée. */
+function Transfers() {
+  const { data } = useStore()
+  const [editing, setEditing] = useState<Transaction | null>(null)
+  const pairs = transferPairs(data)
+
+  if (!pairs.length)
+    return (
+      <Empty>
+        Aucun virement entre tes comptes. Ils sont reconnus à l'import quand les deux relevés sont importés, ou en ouvrant une
+        opération : « Virement entre mes comptes ».
+      </Empty>
+    )
+
+  return (
+    <div className="card">
+      <p className="muted small">
+        Ni dépense ni revenu : l'argent change seulement de compte. Ouvre un virement pour le détacher s'il a été mal reconnu.
+      </p>
+      <ul className="list">
+        {pairs.map((p) => (
+          <li key={p.id}>
+            <button className="item" onClick={() => setEditing(p.out ?? p.in ?? null)}>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <strong>
+                  {p.from?.name ?? '?'} → {p.to?.name ?? '?'}
+                </strong>
+                <div className="muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatDate(p.date)} · {(p.out ?? p.in)?.label}
+                </div>
+              </div>
+              <Money cents={p.amount} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {editing && <TransactionEditor tx={editing} onClose={() => setEditing(null)} />}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
   suggestAllocation,
   transferBetweenPots,
   UNALLOCATED_POT,
+  potForTransaction,
   unallocatedSavingsTransactions,
 } from '../domain/savings'
 import type { Pot, Transaction } from '../domain/types'
@@ -55,6 +56,9 @@ export function SavingsScreen() {
               <li key={t.id} className="row between">
                 <span>
                   {formatDate(t.date)} · {t.amount > 0 ? 'Versement' : 'Retrait'} <Money cents={t.amount} signed />
+                  {t.amount > 0 && potForTransaction(t, data) && (
+                    <span className="muted small"> → {potForTransaction(t, data)!.name}</span>
+                  )}
                 </span>
                 <button className="btn small primary" onClick={() => setAllocating(t)}>
                   Répartir
@@ -294,7 +298,7 @@ function AllocateForm({ tx, onClose }: { tx: Transaction; onClose: () => void })
   const deposit = tx.amount > 0
   const [split, setSplit] = useState<Map<string, number>>(() =>
     deposit
-      ? suggestAllocation(tx.amount, data)
+      ? suggestAllocation(tx.amount, data, tx)
       : new Map([[pots.find((p) => p.type === 'projet')?.id ?? UNALLOCATED_POT, tx.amount]]),
   )
   const total = [...split.values()].reduce((s, v) => s + v, 0)
