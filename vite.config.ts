@@ -4,13 +4,19 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // `vite build --mode artifact` : version d'essai publiée comme page claude.ai (chemins relatifs, sans service worker).
+// Version affichée dans Réglages : date de construction, pour vérifier que la mise à jour est arrivée.
+const BUILD = new Date().toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig(({ mode }) => ({
+  define: { __APP_BUILD__: JSON.stringify(BUILD) },
   // BASE_PATH : sous-dossier d'hébergement (GitHub Pages sert l'app sous /mon-budget/).
   base: mode === 'artifact' ? './' : (process.env.BASE_PATH ?? '/'),
   plugins: [
     react(),
     mode !== 'artifact' && VitePWA({
-      registerType: 'autoUpdate',
+      // L'app propose la mise à jour (UpdateBanner) au lieu de recharger d'elle-même en pleine saisie.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'Mon budget',

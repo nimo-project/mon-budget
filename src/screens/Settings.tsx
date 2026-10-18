@@ -36,6 +36,9 @@ export function SettingsScreen() {
       {tab === 'categories' && <Categories />}
       {tab === 'regles' && <Rules />}
       {tab === 'securite' && <Security />}
+      <p className="small muted" style={{ textAlign: 'center', marginTop: '2rem' }}>
+        Version du {__APP_BUILD__} (UTC)
+      </p>
     </div>
   )
 }

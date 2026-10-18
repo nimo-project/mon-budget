@@ -125,6 +125,20 @@ export function Dashboard() {
               ? 'Tes budgets variables partent plus vite que le temps : ralentis un peu.'
               : 'Tes budgets variables sont dans les clous.'}
         </p>
+        {(breakdown.spent.aClasser > 0 || breakdown.spent.horsBudget > 0) && (
+          <div className="row" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+            {breakdown.spent.aClasser > 0 && (
+              <button className="btn small" onClick={() => showGroup('aClasser', 'À classer')}>
+                Voir les {formatMoney(breakdown.spent.aClasser)} à classer
+              </button>
+            )}
+            {breakdown.spent.horsBudget > 0 && (
+              <button className="btn small" onClick={() => showGroup('horsBudget', 'Hors budget')}>
+                Voir les {formatMoney(breakdown.spent.horsBudget)} hors budget
+              </button>
+            )}
+          </div>
+        )}
         <details className="small">
           <summary className="muted">Comment c'est calculé</summary>
           <table className="table breakdown">
