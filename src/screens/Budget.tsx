@@ -8,6 +8,7 @@ import {
   summarize,
   topLines,
   updateBaseBudget,
+  unbudgetedByCategory,
 } from '../domain/budget'
 import { categoryLabel, categoryMap } from '../domain/categories'
 import { forecast } from '../domain/insights'
@@ -17,7 +18,7 @@ import { formatMoney, sum, today, uid } from '../domain/util'
 import { useStore } from '../state/store'
 import { CategorySelect, Money, MoneyInput, PageHead } from '../ui/fields'
 import { Sheet } from '../ui/Sheet'
-import { groupByCategory, periodSpendingRows } from '../domain/charts'
+import { periodSpendingRows } from '../domain/charts'
 import { TransactionsSheet } from './TransactionsSheet'
 import { EnvelopeList } from './Dashboard'
 
@@ -73,7 +74,7 @@ function Tracking() {
   const isFuture = period.start > current.start
   const isPast = period.end < current.start
   const own = hasOwnBudget(data, period)
-  const offBudget = groupByCategory(data, period, 'horsBudget')
+  const offBudget = unbudgetedByCategory(data, period)
   let last = current
   for (let i = 0; i < PLAN_AHEAD; i++) last = nextPeriod(last, data)
   return (
@@ -155,7 +156,7 @@ function Tracking() {
             <h2 style={{ margin: 0 }}>Hors budget</h2>
             <Money cents={summary.unbudgeted} />
           </div>
-          <p className="small muted">Dépenses classées dans une catégorie qui n'a pas de ligne de budget.</p>
+          <p className="small muted">Opérations dont la catégorie n'a pas de ligne de budget sur cette période (y compris à classer, épargne ou investissements). Touche une catégorie pour voir ses opérations.</p>
           <ul className="list">
             {offBudget.map((c) => (
               <li key={c.categoryId}>

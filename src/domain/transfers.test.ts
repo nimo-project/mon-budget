@@ -43,3 +43,19 @@ describe('virements et cagnottes', () => {
     expect(potForTransaction(d.transactions.find((t) => t.id === 'i2')!, d)).toBeUndefined()
   })
 })
+
+describe('hors budget', () => {
+  it('détaille tout ce que compte la case Hors budget, épargne et à classer compris', async () => {
+    const { summarize, unbudgetedByCategory } = await import('./budget')
+    const { currentPeriod } = await import('./periods')
+    const d = data()
+    d.transactions = [
+      tx({ id: 'a', accountId: 'c', date: '2026-10-05', amount: -3000, categoryId: 'cat-epargne--precaution' }),
+      tx({ id: 'b', accountId: 'c', date: '2026-10-06', amount: -1000 }),
+    ]
+    const p = { ...currentPeriod(d), start: '2026-10-01', end: '2026-10-31' }
+    const rows = unbudgetedByCategory(d, p)
+    expect(rows.reduce((s, r) => s + r.amount, 0)).toBe(summarize(d, p).unbudgeted)
+    expect(rows.map((r) => r.categoryId)).toContain('cat-epargne--precaution')
+  })
+})

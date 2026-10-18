@@ -195,3 +195,18 @@ export const BUDGET_KIND_LABEL: Record<BudgetKind, string> = {
   epargne: 'Épargne',
   investissement: 'Investissements',
 }
+
+/**
+ * Détail du « Hors budget » de summarize : toutes les catégories sans ligne de budget (dépenses,
+ * opérations à classer, épargne ou investissements), en centimes positifs pour une sortie.
+ */
+export function unbudgetedByCategory(data: AppData, period: Period): { categoryId: string; amount: number }[] {
+  const totals = totalsByCategory(data, period.start, period.end)
+  const map = categoryMap(data.categories)
+  const covered = new Set<string>()
+  for (const line of budgetFor(data, period)) for (const id of subtree(line.categoryId, data.categories)) covered.add(id)
+  return [...totals]
+    .filter(([catId, amount]) => amount !== 0 && map.get(catId)?.kind !== 'revenu' && !covered.has(catId))
+    .map(([categoryId, amount]) => ({ categoryId, amount: -amount }))
+    .sort((a, b) => b.amount - a.amount)
+}
