@@ -112,6 +112,7 @@ function Tracking() {
           </button>
         </div>
       </div>
+      <PlannedTotal period={period} />
       {!isFuture && (
         <div className="card grid2">
           <div>
@@ -196,6 +197,47 @@ function defaultKind(kind: CategoryKind | undefined): BudgetKind {
   if (kind === 'epargne') return 'epargne'
   if (kind === 'investissement') return 'investissement'
   return 'variable'
+}
+
+/** Total prévu sur la période, par type de ligne : on voit d'un coup tout ce qui est prévu. */
+function PlannedTotal({ period }: { period: Period }) {
+  const { data } = useStore()
+  const tops = topLines(data, budgetFor(data, period))
+  const provision = monthlyAnnualProvision(data)
+  const kinds: BudgetKind[] = ['fixe', 'variable', 'epargne', 'investissement']
+  const byKind = kinds.map((k) => ({ k, amount: sum(tops.filter((l) => l.kind === k), (l) => l.amount) }))
+  const spending = byKind[0].amount + byKind[1].amount + provision
+  const total = sum(byKind, (r) => r.amount) + provision
+  return (
+    <div className="card">
+      <div className="row between">
+        <h2 style={{ margin: 0 }}>Prévu sur la période</h2>
+        <strong>
+          <Money cents={total} />
+        </strong>
+      </div>
+      <ul className="list">
+        {byKind
+          .filter((r) => r.amount > 0)
+          .map((r) => (
+            <li key={r.k} className="row between">
+              <span>{BUDGET_KIND_LABEL[r.k]}</span>
+              <Money cents={r.amount} />
+            </li>
+          ))}
+        {provision > 0 && (
+          <li className="row between">
+            <span>Provision dépenses annuelles</span>
+            <Money cents={provision} />
+          </li>
+        )}
+      </ul>
+      <div className="row between small" style={{ marginTop: '0.5rem' }}>
+        <span className="muted">Dont dépenses (frais fixes, budgets variables{provision > 0 && ', provision'})</span>
+        <Money cents={spending} />
+      </div>
+    </div>
+  )
 }
 
 function BaseBudget() {
